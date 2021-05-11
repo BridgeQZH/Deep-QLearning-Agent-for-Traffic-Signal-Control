@@ -63,7 +63,7 @@ class Simulation:
             # calculate reward of previous action: (change in cumulative waiting time between actions)
             # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
             current_total_wait = self._collect_waiting_times()
-            reward = old_total_wait - current_total_wait
+            reward = old_total_wait - current_total_wait # Difference of accumulated total waiting time
 
             # saving the data into the memory
             if self._step != 0:
@@ -190,8 +190,8 @@ class Simulation:
         car_list = traci.vehicle.getIDList()
 
         for car_id in car_list:
-            lane_pos = traci.vehicle.getLanePosition(car_id)
-            lane_id = traci.vehicle.getLaneID(car_id)
+            lane_pos = traci.vehicle.getLanePosition(car_id) # The position of the vehicle along the lane measured in m.
+            lane_id = traci.vehicle.getLaneID(car_id) # Returns the id of the lane the named vehicle was at within the last step.
             lane_pos = 750 - lane_pos  # inversion of lane pos, so if the car is close to the traffic light -> lane_pos = 0 --- 750 = max len of a road
 
             # distance in meters from the traffic light -> mapping into cells
