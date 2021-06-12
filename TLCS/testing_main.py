@@ -10,12 +10,21 @@ from model import TestModel
 from visualization import Visualization
 from utils import import_test_configuration, set_sumo, set_test_path
 
+# TODO: 1. Add testing env stochasity in to heter
+# TODO: Provide NN hyperparameters choosing argument, when it cannot produce good enough results; Even though, having some arguments
+# TODO: 2. New state representation ; New NN architecture. Solid step to push Rollout; System equation rather than transition probablity.
+# Vector -> New Vector may be high dim
+# Compact state  - + 
+# System equation easier. sampling time & duration time 
+
+
+
 
 if __name__ == "__main__":
 
     config = import_test_configuration(config_file='testing_settings.ini')
     sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
-    model_path, plot_path = set_test_path(config['models_path_name'], 1)
+    model_path, plot_path = set_test_path(config['models_path_name'], 1) # the 1 or 2 controls which model to use
 
     Model = TestModel(
         input_dim=config['num_states'],
