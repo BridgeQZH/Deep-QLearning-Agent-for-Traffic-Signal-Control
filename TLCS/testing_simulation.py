@@ -47,7 +47,7 @@ class Simulation:
         self._waiting_times = {}
         old_total_wait = 0
         old_action = -1 # dummy init
-
+        print(self._num_vehicles)
         while self._step < self._max_steps:
 
             # get current state of the intersection
