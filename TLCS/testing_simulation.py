@@ -16,11 +16,12 @@ PHASE_EWL_YELLOW = 7
 
 
 class Simulation:
-    def __init__(self, Model, TrafficGen, sumo_cmd, max_steps, green_duration, yellow_duration, num_states, num_actions):
+    def __init__(self, Model, TrafficGen, sumo_cmd, num_vehicles, max_steps, green_duration, yellow_duration, num_states, num_actions):
         self._Model = Model
         self._TrafficGen = TrafficGen
         self._step = 0
         self._sumo_cmd = sumo_cmd
+        self._num_vehicles = num_vehicles
         self._max_steps = max_steps
         self._green_duration = green_duration
         self._yellow_duration = yellow_duration
@@ -55,7 +56,7 @@ class Simulation:
             # calculate reward of previous action: (change in cumulative waiting time between actions)
             # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
             current_total_wait = self._collect_waiting_times()
-            reward = old_total_wait - current_total_wait # TODO: consider the comparison
+            reward = (old_total_wait - current_total_wait) / self._num_vehicles # TODO: consider the comparison
 
             # choose the light phase to activate, based on the current state of the intersection
             action = self._choose_action(current_state)
@@ -75,7 +76,7 @@ class Simulation:
 
             self._reward_episode.append(reward)
 
-        #print("Total reward:", np.sum(self._reward_episode))
+        # print("Total reward:", np.sum(self._reward_episode)) # A very small number
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
 
