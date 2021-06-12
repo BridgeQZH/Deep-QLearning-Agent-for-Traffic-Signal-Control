@@ -47,7 +47,7 @@ class Simulation:
         self._waiting_times = {}
         old_total_wait = 0
         old_action = -1 # dummy init
-        print(self._num_vehicles)
+
         while self._step < self._max_steps:
 
             # get current state of the intersection
@@ -56,7 +56,7 @@ class Simulation:
             # calculate reward of previous action: (change in cumulative waiting time between actions)
             # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
             current_total_wait = self._collect_waiting_times()
-            reward = (old_total_wait - current_total_wait) / self._num_vehicles # TODO: consider the comparison
+            reward = old_total_wait - current_total_wait # TODO: consider the comparison
 
             # choose the light phase to activate, based on the current state of the intersection
             action = self._choose_action(current_state)
