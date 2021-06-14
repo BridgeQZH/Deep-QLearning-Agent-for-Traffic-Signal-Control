@@ -76,7 +76,7 @@ class Simulation:
 
             self._reward_episode.append(reward)
 
-        # print("Total reward:", np.sum(self._reward_episode)) # A very small number
+        print("Total reward:", np.sum(self._reward_episode)) # A very small number
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
 
@@ -168,7 +168,8 @@ class Simulation:
 
         for car_id in car_list:
             lane_pos = traci.vehicle.getLanePosition(car_id)
-            lane_id = traci.vehicle.getLaneID(car_id)
+            lane_id = traci.vehicle.getLaneID(car_id) # Much info, but no need to use them all!
+            
             lane_pos = 750 - lane_pos  # inversion of lane pos, so if the car is close to the traffic light -> lane_pos = 0 --- 750 = max len of a road
 
             # distance in meters from the traffic light -> mapping into cells

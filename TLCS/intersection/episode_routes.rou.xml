@@ -1,6 +1,6 @@
 <routes>
             <vType accel="1.0" decel="4.5" id="standard_car" length="5.0" minGap="2.5" maxSpeed="25" sigma="0.5" />
-            <vType accel="0.5" decel="5.0" id="slow_start_car" length="6.0" minGap="3.5" maxSpeed="30" sigma="0.5" />
+            <vType accel="0.1" decel="2.0" id="slow_start_car" length="6.0" minGap="3.5" maxSpeed="30" sigma="0.5" />
 
             <route id="W_N" edges="W2TL TL2N"/>
             <route id="W_E" edges="W2TL TL2E"/>

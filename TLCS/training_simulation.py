@@ -186,7 +186,7 @@ class Simulation:
         """
         Retrieve the state of the intersection from sumo, in the form of cell occupancy
         """
-        state = np.zeros(self._num_states)
+        state = np.zeros(self._num_states) # 80
         car_list = traci.vehicle.getIDList()
 
         for car_id in car_list:
@@ -276,6 +276,12 @@ class Simulation:
                 current_q[action] = reward + self._gamma * np.amax(q_s_a_d[i])  # update Q(state, action)
                 x[i] = state
                 y[i] = current_q  # Q(state) that includes the updated action value
+
+                # optimal control problem: discounted infinite horizon
+                # math object to compare
+                # Prcatical problem to math problem - art
+                # Math Infinite horizon
+                # Cost Function
 
             self._Model.train_batch(x, y)  # train the NN
 
