@@ -143,9 +143,9 @@ class Simulation:
         Decide wheter to perform an explorative or exploitative action, according to an epsilon-greedy policy
         """
         if random.random() < epsilon:
-            return random.randint(0, self._num_actions - 1) # random action
+            return random.randint(0, self._num_actions - 1) # random action - exploration
         else:
-            return np.argmax(self._Model.predict_one(state)) # the best action given the current state
+            return np.argmax(self._Model.predict_one(state)) # the best action given the current state - exploitation
 
 
     def _set_yellow_phase(self, old_action):

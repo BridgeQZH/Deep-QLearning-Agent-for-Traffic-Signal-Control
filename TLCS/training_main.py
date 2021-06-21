@@ -18,7 +18,7 @@ if __name__ == "__main__":
     config = import_train_configuration(config_file='training_settings.ini')
     sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
     path = set_train_path(config['models_path_name'])
-    print(path)
+    print("Model saved to:", path)
     Model = TrainModel(
         config['num_layers'], 
         config['width_layers'], 

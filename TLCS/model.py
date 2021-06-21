@@ -53,7 +53,7 @@ class TrainModel:
 
     def train_batch(self, states, q_sa):
         """
-        Train the nn using the updated q-values
+        Train the NN using the updated q-values
         """
         self._model.fit(states, q_sa, epochs=1, verbose=0)
 
