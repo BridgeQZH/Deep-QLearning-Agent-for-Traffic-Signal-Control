@@ -220,7 +220,6 @@ class Simulation:
                 lane_group = -1
             
             state[lane_group] += 1
-            print(state)
         return state
 
 
