@@ -31,7 +31,6 @@ class TrafficGenerator:
         with open("intersection/episode_routes.rou.xml", "w") as routes:
             print("""<routes>
             <vType accel="1.0" decel="4.5" id="standard_car" length="5.0" minGap="2.5" maxSpeed="25" sigma="0.5" />
-            <vType accel="0.1" decel="2.0" id="slow_start_car" length="6.0" minGap="3.5" maxSpeed="30" sigma="0.5" />
 
             <route id="W_N" edges="W2TL TL2N"/>
             <route id="W_E" edges="W2TL TL2E"/>
@@ -49,7 +48,7 @@ class TrafficGenerator:
             for car_counter, step in enumerate(car_gen_steps):
                 straight_or_turn = np.random.uniform()
                 car_type = np.random.randint(1,11)
-                if car_type <= 8:
+                if car_type <= 11:
                     if straight_or_turn < 0.75:  # choose direction: straight or turn - 75% of times the car goes straight
                         route_straight = np.random.randint(1, 5)  # choose a random source & destination
                         if route_straight == 1:

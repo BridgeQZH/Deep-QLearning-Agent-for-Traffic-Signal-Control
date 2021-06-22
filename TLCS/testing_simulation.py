@@ -163,70 +163,48 @@ class Simulation:
         """
         Retrieve the state of the intersection from sumo, in the form of cell occupancy
         """
-        state = np.zeros(self._num_states)
+        state = np.zeros(self._num_states) # Occupy matrix - 80; Number of vehicles - 16
         car_list = traci.vehicle.getIDList()
 
         for car_id in car_list:
-            lane_pos = traci.vehicle.getLanePosition(car_id)
-            lane_id = traci.vehicle.getLaneID(car_id) # Much info, but no need to use them all!
-            
-            lane_pos = 750 - lane_pos  # inversion of lane pos, so if the car is close to the traffic light -> lane_pos = 0 --- 750 = max len of a road
+            lane_id = traci.vehicle.getLaneID(car_id) # Returns the id of the lane the named vehicle was at within the last step.
 
-            # distance in meters from the traffic light -> mapping into cells
-            if lane_pos < 7:
-                lane_cell = 0
-            elif lane_pos < 14:
-                lane_cell = 1
-            elif lane_pos < 21:
-                lane_cell = 2
-            elif lane_pos < 28:
-                lane_cell = 3
-            elif lane_pos < 40:
-                lane_cell = 4
-            elif lane_pos < 60:
-                lane_cell = 5
-            elif lane_pos < 100:
-                lane_cell = 6
-            elif lane_pos < 160:
-                lane_cell = 7
-            elif lane_pos < 400:
-                lane_cell = 8
-            elif lane_pos <= 750:
-                lane_cell = 9
-
-            # finding the lane where the car is located 
-            # x2TL_3 are the "turn left only" lanes
-            if lane_id == "W2TL_0" or lane_id == "W2TL_1" or lane_id == "W2TL_2":
+            if lane_id == "W2TL_0":
                 lane_group = 0
-            elif lane_id == "W2TL_3":
+            elif lane_id == "W2TL_1":
                 lane_group = 1
-            elif lane_id == "N2TL_0" or lane_id == "N2TL_1" or lane_id == "N2TL_2":
+            elif lane_id == "W2TL_2":
                 lane_group = 2
-            elif lane_id == "N2TL_3":
+            elif lane_id == "W2TL_3":
                 lane_group = 3
-            elif lane_id == "E2TL_0" or lane_id == "E2TL_1" or lane_id == "E2TL_2":
+            elif lane_id == "N2TL_0":
                 lane_group = 4
-            elif lane_id == "E2TL_3":
+            elif lane_id == "N2TL_1":
                 lane_group = 5
-            elif lane_id == "S2TL_0" or lane_id == "S2TL_1" or lane_id == "S2TL_2":
+            elif lane_id == "N2TL_2":
                 lane_group = 6
-            elif lane_id == "S2TL_3":
+            elif lane_id == "N2TL_3":
                 lane_group = 7
+            elif lane_id == "E2TL_0":
+                lane_group = 8
+            elif lane_id == "E2TL_1":
+                lane_group = 9
+            elif lane_id == "E2TL_2":
+                lane_group = 10
+            elif lane_id == "E2TL_3":
+                lane_group = 11
+            elif lane_id == "S2TL_0":
+                lane_group = 12
+            elif lane_id == "S2TL_1":
+                lane_group = 13
+            elif lane_id == "S2TL_2":
+                lane_group = 14
+            elif lane_id == "S2TL_3":
+                lane_group = 15
             else:
                 lane_group = -1
-
-            if lane_group >= 1 and lane_group <= 7:
-                car_position = int(str(lane_group) + str(lane_cell))  # composition of the two postion ID to create a number in interval 0-79
-                valid_car = True
-            elif lane_group == 0:
-                car_position = lane_cell
-                valid_car = True
-            else:
-                valid_car = False  # flag for not detecting cars crossing the intersection or driving away from it
-
-            if valid_car:
-                state[car_position] = 1  # write the position of the car car_id in the state array in the form of "cell occupied"
-
+            
+            state[lane_group] += 1
         return state
 
 
@@ -237,7 +215,11 @@ class Simulation:
 
     @property
     def reward_episode(self):
-        return self._reward_episode
+        accu_reward = []
+        for i in range(len(self._reward_episode)):
+            b1 = sum(self._reward_episode[0:i+1])
+            accu_reward.append(b1)
+        return accu_reward
 
 
 
