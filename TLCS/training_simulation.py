@@ -186,12 +186,12 @@ class Simulation:
         """
         Retrieve the state of the intersection from sumo, in the form of cell occupancy
         """
-        state = np.zeros(self._num_states) # Occupy matrix - 80; Number of vehicles - 16
+        state = np.zeros(self._num_states) # Occupy matrix - 80; Number of vehicles - 16 or 12
         car_list = traci.vehicle.getIDList()
 
         for car_id in car_list:
             lane_id = traci.vehicle.getLaneID(car_id) # Returns the id of the lane the named vehicle was at within the last step.
-
+            # TODO: consider the lane_pos in order to consider the influence of arrival rate to the states
             if lane_id == "W2TL_0":
                 lane_group = 0
             elif lane_id == "W2TL_1" or lane_id == "W2TL_2":

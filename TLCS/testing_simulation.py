@@ -76,7 +76,7 @@ class Simulation:
 
             self._reward_episode.append(reward)
 
-        print("Total reward:", np.sum(self._reward_episode)) # A very small number
+        # print("Total reward:", np.sum(self._reward_episode)) # A very small number
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
 
@@ -171,36 +171,28 @@ class Simulation:
 
             if lane_id == "W2TL_0":
                 lane_group = 0
-            elif lane_id == "W2TL_1":
+            elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
                 lane_group = 1
-            elif lane_id == "W2TL_2":
-                lane_group = 2
             elif lane_id == "W2TL_3":
-                lane_group = 3
+                lane_group = 2
             elif lane_id == "N2TL_0":
+                lane_group = 3
+            elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
                 lane_group = 4
-            elif lane_id == "N2TL_1":
-                lane_group = 5
-            elif lane_id == "N2TL_2":
-                lane_group = 6
             elif lane_id == "N2TL_3":
-                lane_group = 7
+                lane_group = 5
             elif lane_id == "E2TL_0":
-                lane_group = 8
-            elif lane_id == "E2TL_1":
-                lane_group = 9
-            elif lane_id == "E2TL_2":
-                lane_group = 10
+                lane_group = 6
+            elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
+                lane_group = 7
             elif lane_id == "E2TL_3":
-                lane_group = 11
+                lane_group = 8
             elif lane_id == "S2TL_0":
-                lane_group = 12
-            elif lane_id == "S2TL_1":
-                lane_group = 13
-            elif lane_id == "S2TL_2":
-                lane_group = 14
+                lane_group = 9
+            elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
+                lane_group = 10
             elif lane_id == "S2TL_3":
-                lane_group = 15
+                lane_group = 11
             else:
                 lane_group = -1
             
