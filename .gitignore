@@ -1,4 +1,4 @@
 .vscode/settings.json
 *.pyc
 changes.txt
-models/*
+models/
