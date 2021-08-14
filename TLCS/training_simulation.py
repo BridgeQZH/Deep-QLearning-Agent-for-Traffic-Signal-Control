@@ -238,8 +238,8 @@ class Simulation:
             q_s_a_d = self._Model.predict_batch(next_states)  # predict Q(next_state), for every sample
 
             # setup training arrays
-            x = np.zeros((len(batch), self._num_states))
-            y = np.zeros((len(batch), self._num_actions))
+            x = np.zeros((len(batch), self._num_states)) # input
+            y = np.zeros((len(batch), self._num_actions)) # output
 
             for i, b in enumerate(batch):
                 state, action, reward, _ = b[0], b[1], b[2], b[3]  # extract data from one sample

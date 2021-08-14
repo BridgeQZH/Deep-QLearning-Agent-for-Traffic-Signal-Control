@@ -56,11 +56,11 @@ class Simulation:
             # calculate reward of previous action: (change in cumulative waiting time between actions)
             # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
             current_total_wait = self._collect_waiting_times()
-            reward = (old_total_wait - current_total_wait) / self._num_vehicles # TODO: consider the comparison
+            reward = (old_total_wait - current_total_wait) # TODO: consider the comparison
 
             # choose the light phase to activate, based on the current state of the intersection
             action = self._choose_action(current_state)
-
+            print("step:",  self._step, "action:", action)
             # if the chosen phase is different from the last phase, activate the yellow phase
             if self._step != 0 and old_action != action:
                 self._set_yellow_phase(old_action)
@@ -75,6 +75,7 @@ class Simulation:
             old_total_wait = current_total_wait
 
             self._reward_episode.append(reward)
+            print("step:", self._step, "current step reward:", reward)
 
         # print("Total reward:", np.sum(self._reward_episode)) # A very small number
         traci.close()
@@ -119,6 +120,7 @@ class Simulation:
     def _choose_action(self, state):
         """
         Pick the best action known based on the current state of the env
+        model.predict returns numpy array(s) of predictions
         """
         return np.argmax(self._Model.predict_one(state))
 
@@ -135,8 +137,6 @@ class Simulation:
         """
         Activate the correct green light combination in sumo
         """
-
-
         if action_number == 0:
             traci.trafficlight.setPhase("TL", PHASE_NS_GREEN)
         elif action_number == 1:
@@ -163,40 +163,69 @@ class Simulation:
         """
         Retrieve the state of the intersection from sumo, in the form of cell occupancy
         """
-        state = np.zeros(self._num_states) # Occupy matrix - 80; Number of vehicles - 16
+        state = np.zeros(self._num_states)
         car_list = traci.vehicle.getIDList()
 
         for car_id in car_list:
-            lane_id = traci.vehicle.getLaneID(car_id) # Returns the id of the lane the named vehicle was at within the last step.
+            lane_pos = traci.vehicle.getLanePosition(car_id)
+            lane_id = traci.vehicle.getLaneID(car_id)
+            lane_pos = 750 - lane_pos  # inversion of lane pos, so if the car is close to the traffic light -> lane_pos = 0 --- 750 = max len of a road
 
-            if lane_id == "W2TL_0":
+            # distance in meters from the traffic light -> mapping into cells
+            if lane_pos < 7:
+                lane_cell = 0
+            elif lane_pos < 14:
+                lane_cell = 1
+            elif lane_pos < 21:
+                lane_cell = 2
+            elif lane_pos < 28:
+                lane_cell = 3
+            elif lane_pos < 40:
+                lane_cell = 4
+            elif lane_pos < 60:
+                lane_cell = 5
+            elif lane_pos < 100:
+                lane_cell = 6
+            elif lane_pos < 160:
+                lane_cell = 7
+            elif lane_pos < 400:
+                lane_cell = 8
+            elif lane_pos <= 750:
+                lane_cell = 9
+
+            # finding the lane where the car is located 
+            # x2TL_3 are the "turn left only" lanes
+            if lane_id == "W2TL_0" or lane_id == "W2TL_1" or lane_id == "W2TL_2":
                 lane_group = 0
-            elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
-                lane_group = 1
             elif lane_id == "W2TL_3":
+                lane_group = 1
+            elif lane_id == "N2TL_0" or lane_id == "N2TL_1" or lane_id == "N2TL_2":
                 lane_group = 2
-            elif lane_id == "N2TL_0":
-                lane_group = 3
-            elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
-                lane_group = 4
             elif lane_id == "N2TL_3":
-                lane_group = 5
-            elif lane_id == "E2TL_0":
-                lane_group = 6
-            elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
-                lane_group = 7
+                lane_group = 3
+            elif lane_id == "E2TL_0" or lane_id == "E2TL_1" or lane_id == "E2TL_2":
+                lane_group = 4
             elif lane_id == "E2TL_3":
-                lane_group = 8
-            elif lane_id == "S2TL_0":
-                lane_group = 9
-            elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
-                lane_group = 10
+                lane_group = 5
+            elif lane_id == "S2TL_0" or lane_id == "S2TL_1" or lane_id == "S2TL_2":
+                lane_group = 6
             elif lane_id == "S2TL_3":
-                lane_group = 11
+                lane_group = 7
             else:
                 lane_group = -1
-            
-            state[lane_group] += 1
+
+            if lane_group >= 1 and lane_group <= 7:
+                car_position = int(str(lane_group) + str(lane_cell))  # composition of the two postion ID to create a number in interval 0-79
+                valid_car = True
+            elif lane_group == 0:
+                car_position = lane_cell
+                valid_car = True
+            else:
+                valid_car = False  # flag for not detecting cars crossing the intersection or driving away from it
+
+            if valid_car:
+                state[car_position] = 1  # write the position of the car car_id in the state array in the form of "cell occupied"
+
         return state
 
 
