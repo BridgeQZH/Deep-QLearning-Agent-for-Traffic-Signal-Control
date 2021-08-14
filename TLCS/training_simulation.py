@@ -221,7 +221,7 @@ class Simulation:
                 else:
                     lane_group = -1
             
-            state[lane_group] += 1
+                state[lane_group] += 1
         return state
 
 
