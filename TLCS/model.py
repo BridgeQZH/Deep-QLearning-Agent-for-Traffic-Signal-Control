@@ -70,7 +70,7 @@ class TrainModel:
         Predict the action values from a single state and old action
         """
         state = np.reshape(state, [1, self._input_dim])
-        return self._model.predict(_transition_function(self, state, old_action))
+        return self._model.predict(_transition_function(state, old_action))
 
     def predict_batch(self, states):
         """
