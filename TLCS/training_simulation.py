@@ -70,7 +70,8 @@ class Simulation:
                 self._Memory.add_sample((old_state, old_action, reward, current_state))
 
             # choose the light phase to activate, based on the current state of the intersection
-            action = self._choose_action(current_state, epsilon)
+            # Rollout: based on the next state of the intersection
+            action = self._choose_action_rollout(current_state, old_action, epsilon)
 
             # if the chosen phase is different from the last phase, activate the yellow phase
             if self._step != 0 and old_action != action:
@@ -146,6 +147,16 @@ class Simulation:
             return random.randint(0, self._num_actions - 1) # random action - exploration
         else:
             return np.argmax(self._Model.predict_one(state)) # the best action given the current state - exploitation
+
+    def _choose_action_rollout(self, state, old_action, epsilon):
+        """
+        Decide wheter to perform an explorative or exploitative action, according to an epsilon-greedy policy
+        And consider the rollout method
+        """
+        if random.random() < epsilon:
+            return random.randint(0, self._num_actions - 1) # random action - exploration
+        else:
+            return np.argmax(self._Model.predict_one_rollout(state, old_action)) # the best action given the current state - exploitation
 
 
     def _set_yellow_phase(self, old_action):
@@ -246,12 +257,6 @@ class Simulation:
                 current_q[action] = reward + self._gamma * np.amax(q_s_a_d[i])  # update Q(state, action)
                 x[i] = state
                 y[i] = current_q  # Q(state) that includes the updated action value
-
-                # optimal control problem: discounted infinite horizon
-                # math object to compare
-                # Prcatical problem to math problem - art
-                # Math Infinite horizon
-                # Cost Function
 
             self._Model.train_batch(x, y)  # train the NN
 
