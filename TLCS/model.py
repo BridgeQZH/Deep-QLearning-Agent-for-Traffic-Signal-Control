@@ -11,6 +11,27 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import load_model
 
+def _transition_function(state, old_action):
+        if old_action == 0: # PHASE_NS_GREEN
+            state[4] = max(0, state[4] - 1)
+            state[5] = max(0, state[5] - 1)
+            state[10] = max(0, state[10] - 1)
+            state[11] = max(0, state[11] - 1)
+        elif old_action == 1: # PHASE_NSL_GREEN
+            state[3] = max(0, state[3] - 1)
+            state[9] = max(0, state[9] - 1)
+        elif old_action == 2: # PHASE_EW_GREEN
+            state[1] = max(0, state[1] - 1)
+            state[2] = max(0, state[2] - 1)
+            state[7] = max(0, state[7] - 1)
+            state[8] = max(0, state[8] - 1)
+        elif old_action == 3: # PHASE_EWL_GREEN
+            state[0] = max(0, state[0] - 1)
+            state[6] = max(0, state[6] - 1)
+        
+        next_state = state
+        return next_state
+
 
 class TrainModel:
     def __init__(self, num_layers, width, batch_size, learning_rate, input_dim, output_dim):
@@ -35,26 +56,7 @@ class TrainModel:
         model.compile(loss=losses.mean_squared_error, optimizer=Adam(lr=self._learning_rate))
         return model
     
-    def _transition_function(self, state, old_action):
-        if old_action == 0: # PHASE_NS_GREEN
-            state[4] = max(0, state[4] - 1)
-            state[5] = max(0, state[5] - 1)
-            state[10] = max(0, state[10] - 1)
-            state[11] = max(0, state[11] - 1)
-        elif old_action == 1: # PHASE_NSL_GREEN
-            state[3] = max(0, state[3] - 1)
-            state[9] = max(0, state[9] - 1)
-        elif old_action == 2: # PHASE_EW_GREEN
-            state[1] = max(0, state[1] - 1)
-            state[2] = max(0, state[2] - 1)
-            state[7] = max(0, state[7] - 1)
-            state[8] = max(0, state[8] - 1)
-        elif old_action == 3: # PHASE_EWL_GREEN
-            state[0] = max(0, state[0] - 1)
-            state[6] = max(0, state[6] - 1)
-        
-        next_state = state
-        return next_state
+    
 
     def predict_one(self, state):
         """
@@ -68,10 +70,7 @@ class TrainModel:
         Predict the action values from a single state and old action
         """
         state = np.reshape(state, [1, self._input_dim])
-        return self._model.predict(_transition_function(state, old_action))
-
-    
-
+        return self._model.predict(_transition_function(self, state, old_action))
 
     def predict_batch(self, states):
         """
