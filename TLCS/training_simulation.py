@@ -190,38 +190,35 @@ class Simulation:
         car_list = traci.vehicle.getIDList()
 
         for car_id in car_list:
-            lane_pos = traci.vehicle.getLanePosition(car_id)
             lane_id = traci.vehicle.getLaneID(car_id) # Returns the id of the lane the named vehicle was at within the last step.
-            lane_pos = 750 - lane_pos
-            if lane_pos < 400:
-                if lane_id == "W2TL_0":
-                    lane_group = 0
-                elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
-                    lane_group = 1
-                elif lane_id == "W2TL_3":
-                    lane_group = 2
-                elif lane_id == "N2TL_0":
-                    lane_group = 3
-                elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
-                    lane_group = 4
-                elif lane_id == "N2TL_3":
-                    lane_group = 5
-                elif lane_id == "E2TL_0":
-                    lane_group = 6
-                elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
-                    lane_group = 7
-                elif lane_id == "E2TL_3":
-                    lane_group = 8
-                elif lane_id == "S2TL_0":
-                    lane_group = 9
-                elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
-                    lane_group = 10
-                elif lane_id == "S2TL_3":
-                    lane_group = 11
-                else:
-                    lane_group = -1
-            
-                state[lane_group] += 1
+            if lane_id == "W2TL_0":
+                lane_group = 0
+            elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
+                lane_group = 1
+            elif lane_id == "W2TL_3":
+                lane_group = 2
+            elif lane_id == "N2TL_0":
+                lane_group = 3
+            elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
+                lane_group = 4
+            elif lane_id == "N2TL_3":
+                lane_group = 5
+            elif lane_id == "E2TL_0":
+                lane_group = 6
+            elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
+                lane_group = 7
+            elif lane_id == "E2TL_3":
+                lane_group = 8
+            elif lane_id == "S2TL_0":
+                lane_group = 9
+            elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
+                lane_group = 10
+            elif lane_id == "S2TL_3":
+                lane_group = 11
+            else:
+                lane_group = -1
+        
+            state[lane_group] += 1
         return state
 
 
