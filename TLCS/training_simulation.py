@@ -72,7 +72,7 @@ class Simulation:
             # choose the light phase to activate, based on the current state of the intersection
             # Rollout: based on the next state of the intersection
             action = self._choose_action_rollout(current_state, old_action, epsilon)
-
+            print("step:",  self._step, "action:", action)
             # if the chosen phase is different from the last phase, activate the yellow phase
             if self._step != 0 and old_action != action:
                 self._set_yellow_phase(old_action)
