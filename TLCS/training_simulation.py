@@ -54,7 +54,7 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-
+        
         while self._step < self._max_steps:
 
             # get current state of the intersection
@@ -70,10 +70,11 @@ class Simulation:
                 self._Memory.add_sample((old_state, old_action, reward, current_state))
 
             # choose the light phase to activate, based on the current state of the intersection
-            # Rollout: based on the next state of the intersection
-            action = self._choose_action_rollout(current_state, old_action, epsilon)
-            print("step:",  self._step, "action:", action)
-            # if the chosen phase is different from the last phase, activate the yellow phase
+            action = self._choose_action(current_state, epsilon)
+            print("k = ", self._step)
+            print("x_k:", current_state)
+            print("u_k:", action)
+            # If the chosen phase is different from the last phase, activate the yellow phase
             if self._step != 0 and old_action != action:
                 self._set_yellow_phase(old_action)
                 self._simulate(self._yellow_duration)
@@ -81,16 +82,16 @@ class Simulation:
             # execute the phase selected before
             self._set_green_phase(action)
             self._simulate(self._green_duration)
-
+            
             # saving variables for later & accumulate reward
             old_state = current_state
             old_action = action
             old_total_wait = current_total_wait
-
             # saving only the meaningful reward to better see if the agent is behaving correctly
             if reward < 0:
                 self._sum_neg_reward += reward
 
+        
         self._save_episode_stats()
         print("Total reward:", self._sum_neg_reward, "- Epsilon:", round(epsilon, 2))
         traci.close()
@@ -146,6 +147,7 @@ class Simulation:
         if random.random() < epsilon:
             return random.randint(0, self._num_actions - 1) # random action - exploration
         else:
+            print("argmax:", np.argmax(self._Model.predict_one(state)))
             return np.argmax(self._Model.predict_one(state)) # the best action given the current state - exploitation
 
     def _choose_action_rollout(self, state, old_action, epsilon):
@@ -199,37 +201,95 @@ class Simulation:
         """
         state = np.zeros(self._num_states) # Occupy matrix - 80; Number of vehicles - 16 or 12
         car_list = traci.vehicle.getIDList()
-
+        lane_north = 12
+        lane_south = 13
+        lane_east = 14
+        lane_west = 15
+        lane_group = None
+        lane_north_flag = 0
+        lane_south_flag = 0
+        lane_east_flag = 0
+        lane_west_flag = 0
+        
         for car_id in car_list:
+            lane_pos = traci.vehicle.getLanePosition(car_id)
+            lane_pos = 750 - lane_pos  # inversion of lane pos, so if the car is close to the traffic light -> lane_pos = 0 --- 750 = max len of a road
             lane_id = traci.vehicle.getLaneID(car_id) # Returns the id of the lane the named vehicle was at within the last step.
-            if lane_id == "W2TL_0":
+            if lane_id == "N2TL_0":
                 lane_group = 0
-            elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
-                lane_group = 1
-            elif lane_id == "W2TL_3":
-                lane_group = 2
-            elif lane_id == "N2TL_0":
-                lane_group = 3
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_north_flag = 1
             elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
-                lane_group = 4
+                lane_group = 1
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_north_flag = 1
             elif lane_id == "N2TL_3":
+                lane_group = 2
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_north_flag = 1
+            elif lane_id == "S2TL_0":
+                lane_group = 3
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_south_flag = 1
+            elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
+                lane_group = 4
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_south_flag = 1
+            elif lane_id == "S2TL_3":
                 lane_group = 5
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_south_flag = 1
             elif lane_id == "E2TL_0":
                 lane_group = 6
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_east_flag = 1
             elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
                 lane_group = 7
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_east_flag = 1
             elif lane_id == "E2TL_3":
                 lane_group = 8
-            elif lane_id == "S2TL_0":
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_east_flag = 1
+            elif lane_id == "W2TL_0":
                 lane_group = 9
-            elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_west_flag = 1
+            elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
                 lane_group = 10
-            elif lane_id == "S2TL_3":
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_west_flag = 1
+            elif lane_id == "W2TL_3":
                 lane_group = 11
-            else:
-                lane_group = -1
-        
-            state[lane_group] += 1
+                state[lane_group] += 1
+                if lane_pos <= 10:
+                    lane_west_flag = 1
+            
+        state[lane_north] = 0
+        state[lane_south] = 0
+        state[lane_east] = 0
+        state[lane_west] = 0
+     
+        if lane_north_flag == 1:
+            state[lane_north] = 1
+        if lane_south_flag == 1:
+            state[lane_south] = 1
+        if lane_east_flag == 1:
+            state[lane_east] = 1
+        if lane_west_flag == 1:
+            state[lane_west] = 1
+            
         return state
 
 
