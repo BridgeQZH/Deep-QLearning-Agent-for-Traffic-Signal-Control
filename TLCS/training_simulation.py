@@ -1,8 +1,10 @@
+from numpy.testing._private.utils import HAS_LAPACK64
 import traci
 import numpy as np
 import random
 import timeit
 import os
+from f_function import f_function
 
 # phase codes based on environment.net.xml
 PHASE_NS_GREEN = 0  # action 0 code 00
@@ -70,10 +72,12 @@ class Simulation:
                 self._Memory.add_sample((old_state, old_action, reward, current_state))
 
             # choose the light phase to activate, based on the current state of the intersection
-            action = self._choose_action(current_state, epsilon)
+            action = self._pick_a_control_rollout(current_state, current_total_wait, old_action)
+            # action = self._choose_action(current_state, epsilon) # 0 1 2 3
             print("k = ", self._step)
             print("x_k:", current_state)
             print("u_k:", action)
+            print("old_action:", old_action)
             # If the chosen phase is different from the last phase, activate the yellow phase
             if self._step != 0 and old_action != action:
                 self._set_yellow_phase(old_action)
@@ -147,19 +151,109 @@ class Simulation:
         if random.random() < epsilon:
             return random.randint(0, self._num_actions - 1) # random action - exploration
         else:
-            print("argmax:", np.argmax(self._Model.predict_one(state)))
+            # print("argmax:", np.argmax(self._Model.predict_one(state)))
             return np.argmax(self._Model.predict_one(state)) # the best action given the current state - exploitation
 
-    def _choose_action_rollout(self, state, old_action, epsilon):
+    def _pick_a_control_rollout(self, current_state, current_total_wait, old_action):
         """
-        Decide wheter to perform an explorative or exploitative action, according to an epsilon-greedy policy
-        And consider the rollout method
+        Get a control with one step look ahead
         """
-        if random.random() < epsilon:
-            return random.randint(0, self._num_actions - 1) # random action - exploration
-        else:
-            return np.argmax(self._Model.predict_one_rollout(state, old_action)) # the best action given the current state - exploitation
+        if self._step == 0:
+            return 0
+        # print("old_action", old_action)
+        # if old_action == -1:
+        #     old_action = 2
+        a_list = []
+        # x_k, u_1 evaluation
+        action1 = 0
+        action2 = 1
+        action3 = 2
+        action4 = 3
 
+        next_state1 = f_function(self._step ,current_state, action1, old_action)
+        print("next_state1:", next_state1)
+        next_state2 = f_function(self._step ,current_state, action2, old_action)
+        print("next_state2:", next_state2)
+        next_state3 = f_function(self._step ,current_state, action3, old_action)
+        print("next_state3:", next_state3)
+        next_state4 = f_function(self._step ,current_state, action4, old_action)
+        print("next_state4:", next_state4)
+        
+        if old_action != action1:
+            self._set_yellow_phase(old_action)
+            self._simulate(self._yellow_duration)
+        
+        self._set_green_phase(action1)
+        self._simulate(self._green_duration)
+        
+        future_total_wait1 = self._collect_waiting_times()
+        g1 = current_total_wait - future_total_wait1
+        print("g1:", g1)
+
+        if old_action != action2:
+            self._set_yellow_phase(old_action)
+            self._simulate(self._yellow_duration)
+        
+        self._set_green_phase(action2)
+        self._simulate(self._green_duration)
+        
+        future_total_wait2 = self._collect_waiting_times()
+        g2 = current_total_wait - future_total_wait2
+        print("g2:", g2)
+
+        if old_action != action3:
+            self._set_yellow_phase(old_action)
+            self._simulate(self._yellow_duration)
+        
+        self._set_green_phase(action3)
+        self._simulate(self._green_duration)
+        
+        future_total_wait3 = self._collect_waiting_times()
+        g3 = current_total_wait - future_total_wait3
+        print("g3:", g3)
+
+        if old_action != action4:
+            self._set_yellow_phase(old_action)
+            self._simulate(self._yellow_duration)
+        
+        self._set_green_phase(action4)
+        self._simulate(self._green_duration)
+        
+        future_total_wait4 = self._collect_waiting_times()
+        g4 = current_total_wait - future_total_wait4
+        print("g4:", g4)
+        
+        q_s_a_d1 = self._Model.predict_one(next_state1)
+        print("q_s_a_d1:", q_s_a_d1)
+        H1 = np.amax(q_s_a_d1) # x+
+        print(H1)
+        q_tilde1 = g1 + self._gamma * H1
+        print("q_tilde1:", q_tilde1)
+        q_s_a_d2 = self._Model.predict_one(next_state2)
+        print("q_s_a_d2:", q_s_a_d2)
+        H2 = np.amax(q_s_a_d2)
+        print(H2)
+        q_tilde2 = g2 + self._gamma * H2
+        print("q_tilde2:", q_tilde2)
+        q_s_a_d3 = self._Model.predict_one(next_state3)
+        H3 = np.amax(q_s_a_d3)
+        q_tilde3 = g3 + self._gamma * H3
+        print("q_tilde3:", q_tilde3)
+        q_s_a_d4 = self._Model.predict_one(next_state4)
+        H4 = np.amax(q_s_a_d4)
+        q_tilde4 = g4 + self._gamma * H4
+        
+        print("q_tilde4:", q_tilde4)
+
+        a_list.append(q_tilde1)
+        a_list.append(q_tilde2)
+        a_list.append(q_tilde3)
+        a_list.append(q_tilde4)
+        # four Q tilde, see which control wins
+        print("a_list:", a_list)
+        max_index = a_list.index(max(a_list))
+        print("max_index", max_index)
+        return max_index
 
     def _set_yellow_phase(self, old_action):
         """
@@ -291,6 +385,8 @@ class Simulation:
             state[lane_west] = 1
             
         return state
+
+    
 
 
     def _replay(self):

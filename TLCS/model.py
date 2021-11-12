@@ -10,7 +10,6 @@ from tensorflow.keras import losses
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import load_model
-from f_function import f_function
 
 class TrainModel:
     def __init__(self, num_layers, width, batch_size, learning_rate, input_dim, output_dim):
@@ -42,15 +41,7 @@ class TrainModel:
         Predict the action values from a single state
         """
         state = np.reshape(state, [1, self._input_dim])
-        print("predict:", self._model.predict(state))
         return self._model.predict(state)
-
-    def predict_one_rollout(self, state, old_action):
-        """
-        Predict the action values from a single state and old action
-        """
-        state = np.reshape(state, [1, self._input_dim])
-        return self._model.predict(_transition_function(state, old_action))
 
     def predict_batch(self, states):
         """
