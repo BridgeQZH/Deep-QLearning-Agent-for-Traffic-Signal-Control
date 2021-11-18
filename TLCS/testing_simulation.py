@@ -163,40 +163,50 @@ class Simulation:
         """
         Retrieve the state of the intersection from sumo, in the form of cell occupancy
         """
-        state = np.zeros(self._num_states) # Occupy matrix - 80; Number of vehicles - 16
+        state = np.zeros(self._num_states) # Occupy matrix - 80; Number of vehicles - 16 or 12
         car_list = traci.vehicle.getIDList()
 
         for car_id in car_list:
+            lane_pos = traci.vehicle.getLanePosition(car_id)
+            lane_pos = 750 - lane_pos  # inversion of lane pos, so if the car is close to the traffic light -> lane_pos = 0 --- 750 = max len of a road
             lane_id = traci.vehicle.getLaneID(car_id) # Returns the id of the lane the named vehicle was at within the last step.
+            if lane_pos <= 100:
+                if lane_id == "N2TL_0":
+                    state[0] += 1
+                    
+                elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
+                    state[1] += 1
+                    
+                elif lane_id == "N2TL_3":
+                    state[2] += 1
+                    
+                elif lane_id == "S2TL_0":
+                    state[3] += 1
+                    
+                elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
+                    state[4] += 1
+                    
+                elif lane_id == "S2TL_3":
+                    state[5] += 1
+                    
+                elif lane_id == "E2TL_0":
+                    state[6] += 1
+                    
+                elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
+                    state[7] += 1
+                    
+                elif lane_id == "E2TL_3":
+                    state[8] += 1
+                    
+                elif lane_id == "W2TL_0":
+                    state[9] += 1
+                    
+                elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
+                    state[10] += 1
+                    
+                elif lane_id == "W2TL_3":
+                    state[11] += 1
 
-            if lane_id == "W2TL_0":
-                lane_group = 0
-            elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
-                lane_group = 1
-            elif lane_id == "W2TL_3":
-                lane_group = 2
-            elif lane_id == "N2TL_0":
-                lane_group = 3
-            elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
-                lane_group = 4
-            elif lane_id == "N2TL_3":
-                lane_group = 5
-            elif lane_id == "E2TL_0":
-                lane_group = 6
-            elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
-                lane_group = 7
-            elif lane_id == "E2TL_3":
-                lane_group = 8
-            elif lane_id == "S2TL_0":
-                lane_group = 9
-            elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
-                lane_group = 10
-            elif lane_id == "S2TL_3":
-                lane_group = 11
-            else:
-                lane_group = -1
-            
-            state[lane_group] += 1
         return state
 
 

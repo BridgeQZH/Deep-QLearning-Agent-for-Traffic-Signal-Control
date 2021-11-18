@@ -4,7 +4,8 @@ import numpy as np
 import random
 import timeit
 import os
-from f_function import f_function
+from f_function_read_file import f_function
+from reward_by_hand import g_function
 
 # phase codes based on environment.net.xml
 PHASE_NS_GREEN = 0  # action 0 code 00
@@ -56,16 +57,24 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
+        actionflag = "one-step"
+
+        if actionflag == "traditional":
+            print("You are using the traditional pick action method without rollout")
+        if actionflag == "one-step":
+            print("You are using the one-step lookahead pick action method with rollout")
+
         
         while self._step < self._max_steps:
 
             # get current state of the intersection
             current_state = self._get_state()
-            # print("current_state: ", current_state)
+            
             # calculate reward of previous action: (change in cumulative waiting time between actions)
             # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
             current_total_wait = self._collect_waiting_times()
             reward = old_total_wait - current_total_wait # Difference of accumulated total waiting time
+            print(reward)
 
             # saving the data into the memory
             if self._step != 0:
@@ -74,18 +83,25 @@ class Simulation:
             # choose the light phase to activate, based on the current state of the intersection
             # action = self._pick_a_control_rollout(current_state, current_total_wait, old_action)
             # action = self._pick_a_control_rollout_four_step(current_state, current_total_wait, old_action)
-            action = self._choose_action(current_state, epsilon) # 0 1 2 3
+            if actionflag == "traditional":
+                action = self._choose_action(current_state, epsilon) # 0 1 2 3
+            if actionflag == "one-step":
+                action = self._pick_a_control_rollout(current_state, old_action)
+
+                
+
             
-            # print("k = ", self._step)
+            print("k = ", self._step)
+            print("current_state: ", current_state)
             # print("reward: ", reward)
-            # if action == 0:
-            #     print("action is North and South Green")
-            # if action == 1:
-            #     print("action is North and South Left Green")
-            # if action == 2:
-            #     print("action is East and West Green")
-            # if action == 3:
-            #     print("action is East and West Left Green")
+            if action == 0:
+                print("action is North and South Green")
+            if action == 1:
+                print("action is North and South Left Green")
+            if action == 2:
+                print("action is East and West Green")
+            if action == 3:
+                print("action is East and West Left Green")
 
             # print("x_k:", current_state)
             # print("u_k:", action)
@@ -115,8 +131,8 @@ class Simulation:
 
         print("Training...")
         start_time = timeit.default_timer()
-        for _ in range(self._training_epochs):
-            self._replay()
+        # for _ in range(self._training_epochs):
+        #     self._replay()
         training_time = round(timeit.default_timer() - start_time, 1)
 
         return simulation_time, training_time
@@ -166,7 +182,7 @@ class Simulation:
             # print("argmax:", np.argmax(self._Model.predict_one(state)))
             return np.argmax(self._Model.predict_one(state)) # the best action given the current state - exploitation
 
-    def _pick_a_control_rollout(self, current_state, current_total_wait, old_action): # one-step look ahead with Q factor approximation
+    def _pick_a_control_rollout(self, current_state, old_action): # one-step look ahead with Q factor approximation
         """
         Get a control with one step look ahead
         """
@@ -191,50 +207,13 @@ class Simulation:
         next_state4 = f_function(self._step ,current_state, action4, old_action)
         # print("next_state4:", next_state4)
         
-        if old_action != action1:
-            self._set_yellow_phase(old_action)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(action1)
-        self._simulate(self._green_duration)
-        
-        future_total_wait1 = self._collect_waiting_times()
-        g1 = current_total_wait - future_total_wait1
+        # For loop with +%s
+        g1 = g_function(current_state, action1, old_action)
+        g2 = g_function(current_state, action2, old_action)
+        g3 = g_function(current_state, action3, old_action)
+        g4 = g_function(current_state, action4, old_action)
         # print("g1:", g1)
-
-        if old_action != action2:
-            self._set_yellow_phase(old_action)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(action2)
-        self._simulate(self._green_duration)
-        
-        future_total_wait2 = self._collect_waiting_times()
-        g2 = current_total_wait - future_total_wait2
-        # print("g2:", g2)
-
-        if old_action != action3:
-            self._set_yellow_phase(old_action)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(action3)
-        self._simulate(self._green_duration)
-        
-        future_total_wait3 = self._collect_waiting_times()
-        g3 = current_total_wait - future_total_wait3
-        # print("g3:", g3)
-
-        if old_action != action4:
-            self._set_yellow_phase(old_action)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(action4)
-        self._simulate(self._green_duration)
-        
-        future_total_wait4 = self._collect_waiting_times()
-        g4 = current_total_wait - future_total_wait4
-        # print("g4:", g4)
-        
+       
         # Get evulation for four pairs (x_k, u_i) (i = 1, 2, 3, 4)
         q_s_a_d1 = self._Model.predict_one(next_state1)
         # print("q_s_a_d1:", q_s_a_d1)
