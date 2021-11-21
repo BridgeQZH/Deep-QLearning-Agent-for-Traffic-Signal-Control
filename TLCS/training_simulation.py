@@ -4,8 +4,9 @@ import numpy as np
 import random
 import timeit
 import os
-from f_function_read_file import f_function
+from f_function_arrival_rate import f_function
 from reward_by_hand import g_function
+import difflib
 
 # phase codes based on environment.net.xml
 PHASE_NS_GREEN = 0  # action 0 code 00
@@ -54,27 +55,57 @@ class Simulation:
         self._sum_neg_reward = 0
         self._sum_queue_length = 0
         self._sum_waiting_time = 0
+        self._arrival_rate = {
+            "N0":0,
+            "N1&N2":0,
+            "N3":0,
+            "S0":0,
+            "S1&S2":0,
+            "S3":0,
+            "E0":0,
+            "E1&E2":0,
+            "E3":0,
+            "W0":0,
+            "W1&W2":0,
+            "W3":0
+        }
+        self._lane_recorder = {
+            "N0":[0] * 10,
+            "N1&N2":[0] * 10,
+            "N3":[0] * 10,
+            "S0":[0] * 10,
+            "S1&S2":[0] * 10,
+            "S3":[0] * 10,
+            "E0":[0] * 10,
+            "E1&E2":[0] * 10,
+            "E3":[0] * 10,
+            "W0":[0] * 10,
+            "W1&W2":[0] * 10,
+            "W3":[0] * 10
+        }
+        
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "one-step"
+        actionflag = "traditional"
 
         if actionflag == "traditional":
             print("You are using the traditional pick action method without rollout")
         if actionflag == "one-step":
             print("You are using the one-step lookahead pick action method with rollout")
+        if actionflag == "manual":
+            print("The action is set manually")
 
-        
         while self._step < self._max_steps:
 
             # get current state of the intersection
             current_state = self._get_state()
-            
+            # print("lane_recorder situation:", self._lane_recorder)
             # calculate reward of previous action: (change in cumulative waiting time between actions)
             # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
             current_total_wait = self._collect_waiting_times()
             reward = old_total_wait - current_total_wait # Difference of accumulated total waiting time
-            print(reward)
+            # print(reward)
 
             # saving the data into the memory
             if self._step != 0:
@@ -86,14 +117,23 @@ class Simulation:
             if actionflag == "traditional":
                 action = self._choose_action(current_state, epsilon) # 0 1 2 3
             if actionflag == "one-step":
-                action = self._pick_a_control_rollout(current_state, old_action)
-
-                
-
+               action = self._pick_a_control_rollout(current_state, old_action)
+            if actionflag == "multi-step":
+                action = self._pick_a_control_rollout_four_step(current_state, old_action)
+            if actionflag == "manual":
+                if self._step <= 800:
+                    action = 0
+                else:
+                    action = 1
             
             print("k = ", self._step)
-            print("current_state: ", current_state)
-            # print("reward: ", reward)
+            print("True current_state: ", current_state)
+
+            if self._step > 215:
+                difference = [abs(x1 - x2) for (x1, x2) in zip(current_state,predict_state)]
+                similarity = sum(difference) / len(difference)
+                print("Similarity: ", similarity)
+
             if action == 0:
                 print("action is North and South Green")
             if action == 1:
@@ -102,7 +142,10 @@ class Simulation:
                 print("action is East and West Green")
             if action == 3:
                 print("action is East and West Left Green")
-
+            if self._step > 200:
+                predict_state = f_function(self._arrival_rate, current_state, action, old_action)
+                print("predict state based on f function (Compare with next true state):", predict_state)
+               
             # print("x_k:", current_state)
             # print("u_k:", action)
             # print("old_action:", old_action)
@@ -118,6 +161,8 @@ class Simulation:
             # saving variables for later & accumulate reward
             old_state = current_state
             old_action = action
+            
+
             old_total_wait = current_total_wait
             # saving only the meaningful reward to better see if the agent is behaving correctly
             if reward < 0:
@@ -131,8 +176,9 @@ class Simulation:
 
         print("Training...")
         start_time = timeit.default_timer()
-        # for _ in range(self._training_epochs):
-        #     self._replay()
+        if actionflag == "traditional":
+            for _ in range(self._training_epochs):
+                self._replay()
         training_time = round(timeit.default_timer() - start_time, 1)
 
         return simulation_time, training_time
@@ -198,14 +244,14 @@ class Simulation:
         action3 = 2
         action4 = 3
 
-        next_state1 = f_function(self._step ,current_state, action1, old_action)
-        # print("next_state1:", next_state1)
-        next_state2 = f_function(self._step ,current_state, action2, old_action)
-        # print("next_state2:", next_state2)
-        next_state3 = f_function(self._step ,current_state, action3, old_action)
-        # print("next_state3:", next_state3)
-        next_state4 = f_function(self._step ,current_state, action4, old_action)
-        # print("next_state4:", next_state4)
+        next_state1 = f_function(self._arrival_rate, current_state, action1, old_action)
+        print("If NS green, next_state:", next_state1)
+        next_state2 = f_function(self._arrival_rate, current_state, action2, old_action)
+        print("If NS left green, next_state:", next_state2)
+        next_state3 = f_function(self._arrival_rate, current_state, action3, old_action)
+        print("If EW green, next_state:", next_state3)
+        next_state4 = f_function(self._arrival_rate, current_state, action4, old_action)
+        print("If NS left green, next_state:", next_state4)
         
         # For loop with +%s
         g1 = g_function(current_state, action1, old_action)
@@ -533,47 +579,94 @@ class Simulation:
         """
         state = np.zeros(self._num_states) # Occupy matrix - 80; Number of vehicles - 16 or 12
         car_list = traci.vehicle.getIDList()
+        if self._step >=100:
+            a = self._step % 100
+            self._lane_recorder["N0"][int(a/10)%10] = 0
+            self._lane_recorder["N1&N2"][int(a/10)%10] = 0
+            self._lane_recorder["N3"][int(a/10)%10] = 0
+            self._lane_recorder["S0"][int(a/10)%10] = 0
+            self._lane_recorder["S1&S2"][int(a/10)%10] = 0
+            self._lane_recorder["S3"][int(a/10)%10] = 0
+            self._lane_recorder["E0"][int(a/10)%10] = 0
+            self._lane_recorder["E1&E2"][int(a/10)%10] = 0
+            self._lane_recorder["E3"][int(a/10)%10] = 0
+            self._lane_recorder["W0"][int(a/10)%10] = 0
+            self._lane_recorder["W1&W2"][int(a/10)%10] = 0
+            self._lane_recorder["W3"][int(a/10)%10] = 0
 
         for car_id in car_list:
             lane_pos = traci.vehicle.getLanePosition(car_id)
             lane_pos = 750 - lane_pos  # inversion of lane pos, so if the car is close to the traffic light -> lane_pos = 0 --- 750 = max len of a road
+            # print("car_id and lane_pos pair:", car_id, lane_pos)
+            # print(lane_pos)
             lane_id = traci.vehicle.getLaneID(car_id) # Returns the id of the lane the named vehicle was at within the last step.
-            if lane_pos <= 100:
+            if lane_pos <= 200:
                 if lane_id == "N2TL_0":
                     state[0] += 1
-                    
                 elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
                     state[1] += 1
-                    
                 elif lane_id == "N2TL_3":
                     state[2] += 1
-                    
                 elif lane_id == "S2TL_0":
                     state[3] += 1
-                    
                 elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
                     state[4] += 1
-                    
                 elif lane_id == "S2TL_3":
                     state[5] += 1
-                    
                 elif lane_id == "E2TL_0":
                     state[6] += 1
-                    
                 elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
                     state[7] += 1
-                    
                 elif lane_id == "E2TL_3":
                     state[8] += 1
-                    
                 elif lane_id == "W2TL_0":
                     state[9] += 1
-                    
                 elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
                     state[10] += 1
-                    
                 elif lane_id == "W2TL_3":
                     state[11] += 1
+            if lane_pos >= 636: # value tested from manual setting
+                # Recorder starts to work
+                # Only lane_pos >= 636 will be considered as new vehicle
+                # Even start from 749, after 10s, it will reach 621, which is smaller than 636
+                if lane_id == "N2TL_0":
+                    self._lane_recorder["N0"][int(self._step/10)%10] += 1
+                elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
+                    self._lane_recorder["N1&N2"][int(self._step/10)%10] += 1
+                elif lane_id == "N2TL_3":
+                    self._lane_recorder["N3"][int(self._step/10)%10] += 1
+                elif lane_id == "S2TL_0":
+                    self._lane_recorder["S0"][int(self._step/10)%10] += 1
+                elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
+                    self._lane_recorder["S1&S2"][int(self._step/10)%10] += 1
+                elif lane_id == "S2TL_3":
+                    self._lane_recorder["S3"][int(self._step/10)%10] += 1
+                elif lane_id == "E2TL_0":
+                    self._lane_recorder["E0"][int(self._step/10)%10] += 1
+                elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
+                    self._lane_recorder["E1&E2"][int(self._step/10)%10] += 1
+                elif lane_id == "E2TL_3":
+                    self._lane_recorder["E3"][int(self._step/10)%10] += 1
+                elif lane_id == "W2TL_0":
+                    self._lane_recorder["W0"][int(self._step/10)%10] += 1
+                elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
+                    self._lane_recorder["W1&W2"][int(self._step/10)%10] += 1
+                elif lane_id == "W2TL_3":
+                    self._lane_recorder["W3"][int(self._step/10)%10] += 1
+
+        if self._step >=100:
+            self._arrival_rate["N0"] = sum(self._lane_recorder["N0"]) / len(self._lane_recorder["N0"])
+            self._arrival_rate["N1&N2"] = sum(self._lane_recorder["N1&N2"]) / len(self._lane_recorder["N1&N2"])
+            self._arrival_rate["N3"] = sum(self._lane_recorder["N3"]) / len(self._lane_recorder["N3"])
+            self._arrival_rate["S0"] = sum(self._lane_recorder["S0"]) / len(self._lane_recorder["S0"])
+            self._arrival_rate["S1&S2"] = sum(self._lane_recorder["S1&S2"]) / len(self._lane_recorder["S1&S2"])
+            self._arrival_rate["S3"] = sum(self._lane_recorder["S3"]) / len(self._lane_recorder["S3"])
+            self._arrival_rate["E0"] = sum(self._lane_recorder["E0"]) / len(self._lane_recorder["E0"])
+            self._arrival_rate["E1&E2"] = sum(self._lane_recorder["E1&E2"]) / len(self._lane_recorder["E1&E2"])
+            self._arrival_rate["E3"] = sum(self._lane_recorder["E3"]) / len(self._lane_recorder["E3"])
+            self._arrival_rate["W0"] = sum(self._lane_recorder["W0"]) / len(self._lane_recorder["W0"])
+            self._arrival_rate["W1&W2"] = sum(self._lane_recorder["W1&W2"]) / len(self._lane_recorder["W1&W2"])
+            self._arrival_rate["W3"] = sum(self._lane_recorder["W3"]) / len(self._lane_recorder["W3"])
 
         return state
 

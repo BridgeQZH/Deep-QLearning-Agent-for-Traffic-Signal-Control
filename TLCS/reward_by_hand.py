@@ -2,7 +2,7 @@
 from f_function_arrival_rate import f_function
 
 def g_function(x_k, u_k, u_k_minus_1):
-    # x_k_plus_1 = f_function(x_k, u_k, u_k_minus_1) # imagine next state
+    x_k_plus_1 = f_function(x_k, u_k, u_k_minus_1) # imagine next state
     gamma = 1.4
     
     if u_k == 0:
@@ -21,6 +21,6 @@ def g_function(x_k, u_k, u_k_minus_1):
     if u_k != u_k_minus_1:
         reward *= gamma
     
-    reward = -reward
+    # reward = -reward
 
     return reward
