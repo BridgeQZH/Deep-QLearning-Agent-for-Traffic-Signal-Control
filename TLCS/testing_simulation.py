@@ -29,6 +29,7 @@ class Simulation:
         self._num_actions = num_actions
         self._reward_episode = []
         self._queue_length_episode = []
+        
 
 
     def run(self, episode):
@@ -95,7 +96,7 @@ class Simulation:
             traci.simulationStep()  # simulate 1 step in sumo
             self._step += 1 # update the step counter
             steps_todo -= 1
-            queue_length = self._get_queue_length() 
+            queue_length = self._get_queue_length()
             self._queue_length_episode.append(queue_length)
 
 

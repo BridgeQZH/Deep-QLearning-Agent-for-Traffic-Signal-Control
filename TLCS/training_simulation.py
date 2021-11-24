@@ -6,6 +6,7 @@ import timeit
 import os
 from f_function_arrival_rate import f_function
 from reward_by_hand import g_function
+# from H_function import H_function
 import difflib
 
 # phase codes based on environment.net.xml
@@ -36,6 +37,13 @@ class Simulation:
         self._cumulative_wait_store = []
         self._avg_queue_length_store = []
         self._training_epochs = training_epochs
+
+
+        # Different
+        # print("next_state_1:", self._Model.predict_one([ 1,  0,  7,  1,  0,  9, 10, 13,  6,  9,  8,  8,]))
+        # print("next_state_2:", self._Model.predict_one([ 2,  2,  5,  2,  2,  7, 11, 15,  7,  9,  9,  9,]))
+        # print("next_state_3:", self._Model.predict_one([ 3,  4,  6,  3,  4,  8, 10, 13,  8,  7,  6, 10,]))
+        # print("next_state_4:", self._Model.predict_one([ 4,  6,  7,  4,  6,  9, 11, 15,  6,  7,  7,  8,]))
 
 
     def run(self, episode, epsilon):
@@ -87,7 +95,7 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "traditional"
+        actionflag = "one-step"
 
         if actionflag == "traditional":
             print("You are using the traditional pick action method without rollout")
@@ -95,6 +103,11 @@ class Simulation:
             print("You are using the one-step lookahead pick action method with rollout")
         if actionflag == "manual":
             print("The action is set manually")
+        # Different
+        # print("next_state_1:", self._Model.predict_one([ 1,  0,  7,  1,  0,  9, 10, 13,  6,  9,  8,  8,]))
+        # print("next_state_2:", self._Model.predict_one([ 2,  2,  5,  2,  2,  7, 11, 15,  7,  9,  9,  9,]))
+        # print("next_state_3:", self._Model.predict_one([ 3,  4,  6,  3,  4,  8, 10, 13,  8,  7,  6, 10,]))
+        # print("next_state_4:", self._Model.predict_one([ 4,  6,  7,  4,  6,  9, 11, 15,  6,  7,  7,  8,]))
 
         while self._step < self._max_steps:
 
@@ -103,21 +116,19 @@ class Simulation:
             # print("lane_recorder situation:", self._lane_recorder)
             # calculate reward of previous action: (change in cumulative waiting time between actions)
             # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
-            current_total_wait = self._collect_waiting_times()
-            reward = old_total_wait - current_total_wait # Difference of accumulated total waiting time
-            # print(reward)
-
-            # saving the data into the memory
-            if self._step != 0:
-                self._Memory.add_sample((old_state, old_action, reward, current_state))
+            # current_total_wait = self._collect_waiting_times()
+            # reward = old_total_wait - current_total_wait # Difference of accumulated total waiting time
+            
 
             # choose the light phase to activate, based on the current state of the intersection
             # action = self._pick_a_control_rollout(current_state, current_total_wait, old_action)
             # action = self._pick_a_control_rollout_four_step(current_state, current_total_wait, old_action)
+
+            
             if actionflag == "traditional":
                 action = self._choose_action(current_state, epsilon) # 0 1 2 3
             if actionflag == "one-step":
-               action = self._pick_a_control_rollout(current_state, old_action)
+                action = self._pick_a_control_rollout(current_state, old_action)
             if actionflag == "multi-step":
                 action = self._pick_a_control_rollout_four_step(current_state, old_action)
             if actionflag == "manual":
@@ -126,13 +137,19 @@ class Simulation:
                 else:
                     action = 1
             
+            reward = g_function(current_state, action, old_action)
+            
+            # saving the data into the memory
+            if self._step != 0:
+                self._Memory.add_sample((old_state, old_action, reward, current_state))
+            
             print("k = ", self._step)
             print("True current_state: ", current_state)
 
-            if self._step > 215:
-                difference = [abs(x1 - x2) for (x1, x2) in zip(current_state,predict_state)]
-                similarity = sum(difference) / len(difference)
-                print("Similarity: ", similarity)
+            # if self._step > 215:
+            #     difference = [abs(x1 - x2) for (x1, x2) in zip(current_state,predict_state)]
+            #     similarity = sum(difference) / len(difference)
+            #     print("Average prediction error for each lane: ", similarity)
 
             if action == 0:
                 print("action is North and South Green")
@@ -142,9 +159,9 @@ class Simulation:
                 print("action is East and West Green")
             if action == 3:
                 print("action is East and West Left Green")
-            if self._step > 200:
-                predict_state = f_function(self._arrival_rate, current_state, action, old_action)
-                print("predict state based on f function (Compare with next true state):", predict_state)
+            # if self._step > 200:
+            #     predict_state = f_function(self._arrival_rate, current_state, action, old_action)
+            #     print("predict state based on f function (Compare with next true state):", predict_state)
                
             # print("x_k:", current_state)
             # print("u_k:", action)
@@ -163,7 +180,8 @@ class Simulation:
             old_action = action
             
 
-            old_total_wait = current_total_wait
+            # old_total_wait = current_total_wait
+
             # saving only the meaningful reward to better see if the agent is behaving correctly
             if reward < 0:
                 self._sum_neg_reward += reward
@@ -234,6 +252,10 @@ class Simulation:
         """
         if self._step == 0:
             return 0
+        if current_state[2]>=20 or current_state[5]>=20:
+            return 1
+        elif current_state[8]>=20 or current_state[11]>=20:
+            return 3
         # print("old_action", old_action)
         # if old_action == -1:
         #     old_action = 2
@@ -244,44 +266,113 @@ class Simulation:
         action3 = 2
         action4 = 3
 
-        next_state1 = f_function(self._arrival_rate, current_state, action1, old_action)
-        print("If NS green, next_state:", next_state1)
-        next_state2 = f_function(self._arrival_rate, current_state, action2, old_action)
-        print("If NS left green, next_state:", next_state2)
-        next_state3 = f_function(self._arrival_rate, current_state, action3, old_action)
-        print("If EW green, next_state:", next_state3)
-        next_state4 = f_function(self._arrival_rate, current_state, action4, old_action)
-        print("If NS left green, next_state:", next_state4)
-        
-        # For loop with +%s
+
         g1 = g_function(current_state, action1, old_action)
         g2 = g_function(current_state, action2, old_action)
         g3 = g_function(current_state, action3, old_action)
         g4 = g_function(current_state, action4, old_action)
-        # print("g1:", g1)
-       
-        # Get evulation for four pairs (x_k, u_i) (i = 1, 2, 3, 4)
-        q_s_a_d1 = self._Model.predict_one(next_state1)
-        # print("q_s_a_d1:", q_s_a_d1)
-        H1 = np.amax(q_s_a_d1) # H_{k+1}(x_{k+1}^1)
-        # print(H1)
-        q_tilde1 = g1 + self._gamma * H1
-        # print("q_tilde1:", q_tilde1)
-        q_s_a_d2 = self._Model.predict_one(next_state2)
-        # print("q_s_a_d2:", q_s_a_d2)
-        H2 = np.amax(q_s_a_d2)
-        # print(H2)
-        q_tilde2 = g2 + self._gamma * H2
-        # print("q_tilde2:", q_tilde2)
-        q_s_a_d3 = self._Model.predict_one(next_state3)
-        H3 = np.amax(q_s_a_d3)
-        q_tilde3 = g3 + self._gamma * H3
-        # print("q_tilde3:", q_tilde3)
-        q_s_a_d4 = self._Model.predict_one(next_state4)
-        H4 = np.amax(q_s_a_d4)
-        q_tilde4 = g4 + self._gamma * H4
+
         
-        # print("q_tilde4:", q_tilde4)
+        next_state_1 = f_function(self._arrival_rate, current_state, action1, old_action)
+        print("If NS green, next_state:", next_state_1)
+        q_s_a_d1 = self._Model.predict_one(next_state_1)
+        H1 = np.amax(q_s_a_d1) # H_{k+1}(x_{k+1}^1)
+        q_tilde1 = g1 + self._gamma * H1
+        # print("H1:", H1)
+        
+        next_state_2 = f_function(self._arrival_rate, current_state, action2, old_action)
+        print("If NS left green, next_state:", next_state_2)
+        q_s_a_d2 = self._Model.predict_one(next_state_2)
+        H2 = np.amax(q_s_a_d2) # H_{k+1}(x_{k+1}^1)
+        q_tilde2 = g2 + self._gamma * H2
+        # print("H2:", H2)
+
+        next_state_3 = f_function(self._arrival_rate, current_state, action3, old_action)
+        print("If EW green, next_state:", next_state_3)
+        q_s_a_d3 = self._Model.predict_one(next_state_3)
+        H3 = np.amax(q_s_a_d3) # H_{k+1}(x_{k+1}^1)
+        q_tilde3 = g3 + self._gamma * H3
+        # print("H3:", H3)
+        next_state_4 = f_function(self._arrival_rate, current_state, action4, old_action)
+        print("If NS left green, next_state:", next_state_4)
+        q_s_a_d4 = self._Model.predict_one(next_state_4)
+        H4 = np.amax(q_s_a_d4) # H_{k+1}(x_{k+1}^1)
+        q_tilde4 = g4 + self._gamma * H4
+        # print("H4:", H4)
+        # For loop with +%s
+        
+        
+
+        # print(next_state_1)
+        # next_state2 = f_function(self._arrival_rate, current_state, action2, old_action)
+        # print(next_state_2)
+        # next_state3 = f_function(self._arrival_rate, current_state, action3, old_action)
+        # print(next_state_3)
+        # next_state4 = f_function(self._arrival_rate, current_state, action4, old_action)
+        # print(next_state_4)
+
+        # print("next_state_1:", self._Model.predict_one([ 1,  0,  7,  1,  0,  9, 10, 13,  6,  9,  8,  8,]))
+        # print("next_state_2:", self._Model.predict_one([ 2,  2,  5,  2,  2,  7, 11, 15,  7,  9,  9,  9,]))
+        # print("next_state_3:", self._Model.predict_one([ 3,  4,  6,  3,  4,  8, 10, 13,  8,  7,  6, 10,]))
+        # print("next_state_4:", self._Model.predict_one([ 4,  6,  7,  4,  6,  9, 11, 15,  6,  7,  7,  8,]))
+
+        # # Get evaluation for four pairs (x_k, u_i) (i = 1, 2, 3, 4)
+        # print("input state,", next_state_1)
+        
+        # print("q_s_a_d1:", q_s_a_d1)
+        # # i = 0
+        # # while i<10000:
+        # #     i+=1 
+        # print("input state,", next_state_2)
+
+        # print("q_s_a_d2:", q_s_a_d2)
+
+        # # i = 0
+        # # while i<10000:
+        # #     i+=1 
+        # print("input state,", next_state_3)
+
+        # print("q_s_a_d3:", q_s_a_d3)
+
+        # # i = 0
+        # # while i<10000:
+        # #     i+=1 
+        # print("input state,", next_state_4)
+
+        # print("q_s_a_d4:", q_s_a_d4)
+
+        # # i = 0
+        # # while i<10000:
+        # #     i+=1 
+
+        
+        # # H1 = H_function(next_state1)
+        # print("g1:", g1)
+        # print("H1:", H1)
+        
+        # # print("q_tilde1:", q_tilde1)
+        # # q_s_a_d2 = self._Model.predict_one(next_state2)
+        # H2 = np.amax(self._Model.predict_one(next_state_2))
+        # # H2 = H_function(next_state2)
+        # print("g2:", g2)
+        # print("H2:", H2)
+        # # print("q_tilde2:", q_tilde2)
+        # # q_s_a_d3 = self._Model.predict_one(next_state3)
+
+        # H3 = np.amax(self._Model.predict_one(next_state_3))
+        # # H3 = H_function(next_state3)
+        # print("H3:", H3)
+        # print("g3:", g3)
+        
+        # # print("q_tilde3:", q_tilde3)
+        # # q_s_a_d4 = self._Model.predict_one(next_state4)
+
+        # H4 = np.amax(self._Model.predict_one(next_state_4))
+        # # H4 = H_function(next_state4)
+        # print("g4:", g4)
+        # print("H4:", H4)
+        
+        # # print("q_tilde4:", q_tilde4)
 
         a_list.append(q_tilde1)
         a_list.append(q_tilde2)

@@ -29,6 +29,7 @@ def import_train_configuration(config_file):
     config['gamma'] = content['agent'].getfloat('gamma')
     config['models_path_name'] = content['dir']['models_path_name']
     config['sumocfg_file_name'] = content['dir']['sumocfg_file_name']
+    config['model_to_load'] = content['dir'].getint('model_to_load') 
     return config
 
 

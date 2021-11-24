@@ -2,9 +2,8 @@
 from f_function_arrival_rate import f_function
 
 def g_function(x_k, u_k, u_k_minus_1):
-    x_k_plus_1 = f_function(x_k, u_k, u_k_minus_1) # imagine next state
+    # x_k_plus_1 = f_function(x_k, u_k, u_k_minus_1) # imagine next state
     gamma = 1.4
-    
     if u_k == 0:
         # 0 1 3 4 can move
         # others produce waiting time
@@ -21,6 +20,6 @@ def g_function(x_k, u_k, u_k_minus_1):
     if u_k != u_k_minus_1:
         reward *= gamma
     
-    # reward = -reward
-
+    reward = -reward # If you want higher reward, you have to let maximum number of vehicles not appear in the sum equation.
+    # Which encourages the agent takes related control signal
     return reward

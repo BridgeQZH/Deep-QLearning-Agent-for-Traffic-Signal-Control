@@ -8,9 +8,9 @@ from shutil import copyfile
 from training_simulation import Simulation
 from generator import TrafficGenerator
 from memory import Memory
-from model import TrainModel
+from model import TrainModel, TestModel
 from visualization import Visualization
-from utils import import_train_configuration, set_sumo, set_train_path
+from utils import import_train_configuration, set_sumo, set_train_path, set_test_path
 
 
 if __name__ == "__main__":
@@ -19,14 +19,28 @@ if __name__ == "__main__":
     sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
     path = set_train_path(config['models_path_name'])
     print("Model saved to:", path)
-    Model = TrainModel(
-        config['num_layers'], 
-        config['width_layers'], 
-        config['batch_size'], 
-        config['learning_rate'], 
-        input_dim=config['num_states'], 
-        output_dim=config['num_actions']
+
+    model_path, plot_path = set_test_path(config['models_path_name'], config['model_to_load'])
+
+    # Here TestModel means LoadModel
+    Model = TestModel(
+        input_dim=config['num_states'],
+        model_path=model_path
     )
+
+    # print("next_state_1:", Model.predict_one([ 1,  0,  7,  1,  0,  9, 10, 13,  6,  9,  8,  8,]))
+    # print("next_state_2:", Model.predict_one([ 2,  2,  5,  2,  2,  7, 11, 15,  7,  9,  9,  9,]))
+    # print("next_state_3:", Model.predict_one([ 3,  4,  6,  3,  4,  8, 10, 13,  8,  7,  6, 10,]))
+    # print("next_state_4:", Model.predict_one([ 4,  6,  7,  4,  6,  9, 11, 15,  6,  7,  7,  8,]))
+
+    # Model = TrainModel(
+    #     config['num_layers'], 
+    #     config['width_layers'], 
+    #     config['batch_size'], 
+    #     config['learning_rate'], 
+    #     input_dim=config['num_states'], 
+    #     output_dim=config['num_actions']
+    # )
 
     Memory = Memory(
         config['memory_size_max'], 
@@ -71,10 +85,12 @@ if __name__ == "__main__":
     print("----- End time:", datetime.datetime.now())
     print("----- Session info saved at:", path)
 
-    Model.save_model(path)
-
     copyfile(src='training_settings.ini', dst=os.path.join(path, 'training_settings.ini'))
 
     Visualization.save_data_and_plot(data=Simulation.reward_store, filename='reward', xlabel='Episode', ylabel='Cumulative negative reward')
     Visualization.save_data_and_plot(data=Simulation.cumulative_wait_store, filename='delay', xlabel='Episode', ylabel='Cumulative delay (s)')
     Visualization.save_data_and_plot(data=Simulation.avg_queue_length_store, filename='queue', xlabel='Episode', ylabel='Average queue length (vehicles)')
+
+    # Model.save_model(path)
+
+    
