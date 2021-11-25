@@ -246,13 +246,13 @@ class Simulation:
         if self._step == 0:
             return 0
         # Without force setting
-        # if current_state[2]>=20 or current_state[5]>=20:
-        #     return 1
-        # elif current_state[8]>=20 or current_state[11]>=20:
-        #     return 3
-        # print("old_action", old_action)
-        # if old_action == -1:
-        #     old_action = 2
+        if current_state[2]>=20 or current_state[5]>=20:
+            return 1
+        elif current_state[8]>=20 or current_state[11]>=20:
+            return 3
+        print("old_action", old_action)
+        if old_action == -1:
+            old_action = 2
         a_list = []
         
         action1 = 0
