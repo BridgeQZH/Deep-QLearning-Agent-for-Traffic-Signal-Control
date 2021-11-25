@@ -28,11 +28,7 @@ if __name__ == "__main__":
         model_path=model_path
     )
 
-    # print("next_state_1:", Model.predict_one([ 1,  0,  7,  1,  0,  9, 10, 13,  6,  9,  8,  8,]))
-    # print("next_state_2:", Model.predict_one([ 2,  2,  5,  2,  2,  7, 11, 15,  7,  9,  9,  9,]))
-    # print("next_state_3:", Model.predict_one([ 3,  4,  6,  3,  4,  8, 10, 13,  8,  7,  6, 10,]))
-    # print("next_state_4:", Model.predict_one([ 4,  6,  7,  4,  6,  9, 11, 15,  6,  7,  7,  8,]))
-
+    # Here uses trainmodel if we use traditional model
     # Model = TrainModel(
     #     config['num_layers'], 
     #     config['width_layers'], 

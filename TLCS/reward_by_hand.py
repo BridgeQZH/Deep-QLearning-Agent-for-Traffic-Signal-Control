@@ -8,6 +8,11 @@ def g_function(x_k, u_k, u_k_minus_1):
         # 0 1 3 4 can move
         # others produce waiting time
         reward = x_k[2] + x_k[5] + sum(x_k[6:12])
+        # if x_k[2] >= 27:
+        #     reward += 50
+        # if x_k[5] >= 27:
+        #     reward += 50
+        # if x_k[]
     elif u_k == 1:
         # 2,5 can move
         reward = sum(x_k) - x_k[2] - x_k[5]

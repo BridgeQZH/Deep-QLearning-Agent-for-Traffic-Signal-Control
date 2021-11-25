@@ -38,14 +38,6 @@ class Simulation:
         self._avg_queue_length_store = []
         self._training_epochs = training_epochs
 
-
-        # Different
-        # print("next_state_1:", self._Model.predict_one([ 1,  0,  7,  1,  0,  9, 10, 13,  6,  9,  8,  8,]))
-        # print("next_state_2:", self._Model.predict_one([ 2,  2,  5,  2,  2,  7, 11, 15,  7,  9,  9,  9,]))
-        # print("next_state_3:", self._Model.predict_one([ 3,  4,  6,  3,  4,  8, 10, 13,  8,  7,  6, 10,]))
-        # print("next_state_4:", self._Model.predict_one([ 4,  6,  7,  4,  6,  9, 11, 15,  6,  7,  7,  8,]))
-
-
     def run(self, episode, epsilon):
         """
         Runs an episode of simulation, then starts a training session
@@ -138,14 +130,14 @@ class Simulation:
                     action = 1
             
             reward = g_function(current_state, action, old_action)
+            print("True current_state: ", current_state)
+            print("Current step and its reward:", self._step, reward)
             
             # saving the data into the memory
-            if self._step != 0:
-                self._Memory.add_sample((old_state, old_action, reward, current_state))
-            
-            print("k = ", self._step)
-            print("True current_state: ", current_state)
-
+            if actionflag == "traditional":
+                if self._step != 0:
+                    self._Memory.add_sample((old_state, old_action, reward, current_state))
+            # You can use these lines to see the difference between real and estimated
             # if self._step > 215:
             #     difference = [abs(x1 - x2) for (x1, x2) in zip(current_state,predict_state)]
             #     similarity = sum(difference) / len(difference)
@@ -166,6 +158,7 @@ class Simulation:
             # print("x_k:", current_state)
             # print("u_k:", action)
             # print("old_action:", old_action)
+            
             # If the chosen phase is different from the last phase, activate the yellow phase
             if self._step != 0 and old_action != action:
                 self._set_yellow_phase(old_action)
@@ -252,20 +245,20 @@ class Simulation:
         """
         if self._step == 0:
             return 0
-        if current_state[2]>=20 or current_state[5]>=20:
-            return 1
-        elif current_state[8]>=20 or current_state[11]>=20:
-            return 3
+        # Without force setting
+        # if current_state[2]>=20 or current_state[5]>=20:
+        #     return 1
+        # elif current_state[8]>=20 or current_state[11]>=20:
+        #     return 3
         # print("old_action", old_action)
         # if old_action == -1:
         #     old_action = 2
         a_list = []
-        # x_k, u_1 evaluation
+        
         action1 = 0
         action2 = 1
         action3 = 2
         action4 = 3
-
 
         g1 = g_function(current_state, action1, old_action)
         g2 = g_function(current_state, action2, old_action)
@@ -277,111 +270,32 @@ class Simulation:
         print("If NS green, next_state:", next_state_1)
         q_s_a_d1 = self._Model.predict_one(next_state_1)
         H1 = np.amax(q_s_a_d1) # H_{k+1}(x_{k+1}^1)
-        q_tilde1 = g1 + self._gamma * H1
-        # print("H1:", H1)
+        q_tilde1 = g1 + self._gamma * H1 # x_k, u_1 evaluation
         
         next_state_2 = f_function(self._arrival_rate, current_state, action2, old_action)
         print("If NS left green, next_state:", next_state_2)
         q_s_a_d2 = self._Model.predict_one(next_state_2)
-        H2 = np.amax(q_s_a_d2) # H_{k+1}(x_{k+1}^1)
+        H2 = np.amax(q_s_a_d2) 
         q_tilde2 = g2 + self._gamma * H2
-        # print("H2:", H2)
 
         next_state_3 = f_function(self._arrival_rate, current_state, action3, old_action)
         print("If EW green, next_state:", next_state_3)
         q_s_a_d3 = self._Model.predict_one(next_state_3)
-        H3 = np.amax(q_s_a_d3) # H_{k+1}(x_{k+1}^1)
+        H3 = np.amax(q_s_a_d3) 
         q_tilde3 = g3 + self._gamma * H3
-        # print("H3:", H3)
+        
         next_state_4 = f_function(self._arrival_rate, current_state, action4, old_action)
         print("If NS left green, next_state:", next_state_4)
         q_s_a_d4 = self._Model.predict_one(next_state_4)
-        H4 = np.amax(q_s_a_d4) # H_{k+1}(x_{k+1}^1)
+        H4 = np.amax(q_s_a_d4) 
         q_tilde4 = g4 + self._gamma * H4
-        # print("H4:", H4)
-        # For loop with +%s
         
-        
-
-        # print(next_state_1)
-        # next_state2 = f_function(self._arrival_rate, current_state, action2, old_action)
-        # print(next_state_2)
-        # next_state3 = f_function(self._arrival_rate, current_state, action3, old_action)
-        # print(next_state_3)
-        # next_state4 = f_function(self._arrival_rate, current_state, action4, old_action)
-        # print(next_state_4)
-
-        # print("next_state_1:", self._Model.predict_one([ 1,  0,  7,  1,  0,  9, 10, 13,  6,  9,  8,  8,]))
-        # print("next_state_2:", self._Model.predict_one([ 2,  2,  5,  2,  2,  7, 11, 15,  7,  9,  9,  9,]))
-        # print("next_state_3:", self._Model.predict_one([ 3,  4,  6,  3,  4,  8, 10, 13,  8,  7,  6, 10,]))
-        # print("next_state_4:", self._Model.predict_one([ 4,  6,  7,  4,  6,  9, 11, 15,  6,  7,  7,  8,]))
-
-        # # Get evaluation for four pairs (x_k, u_i) (i = 1, 2, 3, 4)
-        # print("input state,", next_state_1)
-        
-        # print("q_s_a_d1:", q_s_a_d1)
-        # # i = 0
-        # # while i<10000:
-        # #     i+=1 
-        # print("input state,", next_state_2)
-
-        # print("q_s_a_d2:", q_s_a_d2)
-
-        # # i = 0
-        # # while i<10000:
-        # #     i+=1 
-        # print("input state,", next_state_3)
-
-        # print("q_s_a_d3:", q_s_a_d3)
-
-        # # i = 0
-        # # while i<10000:
-        # #     i+=1 
-        # print("input state,", next_state_4)
-
-        # print("q_s_a_d4:", q_s_a_d4)
-
-        # # i = 0
-        # # while i<10000:
-        # #     i+=1 
-
-        
-        # # H1 = H_function(next_state1)
-        # print("g1:", g1)
-        # print("H1:", H1)
-        
-        # # print("q_tilde1:", q_tilde1)
-        # # q_s_a_d2 = self._Model.predict_one(next_state2)
-        # H2 = np.amax(self._Model.predict_one(next_state_2))
-        # # H2 = H_function(next_state2)
-        # print("g2:", g2)
-        # print("H2:", H2)
-        # # print("q_tilde2:", q_tilde2)
-        # # q_s_a_d3 = self._Model.predict_one(next_state3)
-
-        # H3 = np.amax(self._Model.predict_one(next_state_3))
-        # # H3 = H_function(next_state3)
-        # print("H3:", H3)
-        # print("g3:", g3)
-        
-        # # print("q_tilde3:", q_tilde3)
-        # # q_s_a_d4 = self._Model.predict_one(next_state4)
-
-        # H4 = np.amax(self._Model.predict_one(next_state_4))
-        # # H4 = H_function(next_state4)
-        # print("g4:", g4)
-        # print("H4:", H4)
-        
-        # # print("q_tilde4:", q_tilde4)
-
         a_list.append(q_tilde1)
         a_list.append(q_tilde2)
         a_list.append(q_tilde3)
         a_list.append(q_tilde4)
         # four Q tilde, see which control wins
-        # print("a_list:", a_list)
         max_index = a_list.index(max(a_list))
-        # print("max_index", max_index)
         return max_index
 
     def _pick_a_control_rollout_four_step(self, current_state, current_total_wait, old_action): # four-step look ahead with Q factor approximation

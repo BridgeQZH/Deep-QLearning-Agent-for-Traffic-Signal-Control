@@ -3,6 +3,7 @@ import numpy as np
 import random
 import timeit
 import os
+from reward_by_hand import g_function
 
 # phase codes based on environment.net.xml
 PHASE_NS_GREEN = 0  # action 0 code 00
@@ -57,11 +58,21 @@ class Simulation:
             # calculate reward of previous action: (change in cumulative waiting time between actions)
             # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
             current_total_wait = self._collect_waiting_times()
-            reward = (old_total_wait - current_total_wait) # TODO: consider the comparison
+            # reward = (old_total_wait - current_total_wait) # TODO: consider the comparison
 
             # choose the light phase to activate, based on the current state of the intersection
             action = self._choose_action(current_state)
-            print("step:",  self._step, "action:", action)
+
+            reward = g_function(current_state, action, old_action)
+            print("step:",  self._step, "reward:", reward)
+            if action == 0:
+                print("action is North and South Green")
+            if action == 1:
+                print("action is North and South Left Green")
+            if action == 2:
+                print("action is East and West Green")
+            if action == 3:
+                print("action is East and West Left Green")
             # if the chosen phase is different from the last phase, activate the yellow phase
             if self._step != 0 and old_action != action:
                 self._set_yellow_phase(old_action)
