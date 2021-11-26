@@ -87,7 +87,7 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "one-step"
+        actionflag = "traditional"
 
         if actionflag == "traditional":
             print("You are using the traditional pick action method without rollout")
