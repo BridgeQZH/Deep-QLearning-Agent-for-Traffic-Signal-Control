@@ -23,20 +23,20 @@ if __name__ == "__main__":
     model_path, plot_path = set_test_path(config['models_path_name'], config['model_to_load'])
 
     # Here TestModel means LoadModel
-    # Model = TestModel(
-    #     input_dim=config['num_states'],
-    #     model_path=model_path
-    # )
+    Model = TestModel(
+        input_dim=config['num_states'],
+        model_path=model_path
+    )
 
     # Here uses trainmodel if we use traditional model
-    Model = TrainModel(
-        config['num_layers'], 
-        config['width_layers'], 
-        config['batch_size'], 
-        config['learning_rate'], 
-        input_dim=config['num_states'], 
-        output_dim=config['num_actions']
-    )
+    # Model = TrainModel(
+    #     config['num_layers'], 
+    #     config['width_layers'], 
+    #     config['batch_size'], 
+    #     config['learning_rate'], 
+    #     input_dim=config['num_states'], 
+    #     output_dim=config['num_actions']
+    # )
 
     Memory = Memory(
         config['memory_size_max'], 
@@ -87,6 +87,6 @@ if __name__ == "__main__":
     Visualization.save_data_and_plot(data=Simulation.cumulative_wait_store, filename='delay', xlabel='Episode', ylabel='Cumulative delay (s)')
     Visualization.save_data_and_plot(data=Simulation.avg_queue_length_store, filename='queue', xlabel='Episode', ylabel='Average queue length (vehicles)')
 
-    Model.save_model(path)
+    # Model.save_model(path)
 
     

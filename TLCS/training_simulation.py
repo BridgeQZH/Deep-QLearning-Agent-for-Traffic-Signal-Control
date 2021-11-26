@@ -87,7 +87,7 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "traditional"
+        actionflag = "one-step"
 
         if actionflag == "traditional":
             print("You are using the traditional pick action method without rollout")
@@ -95,11 +95,6 @@ class Simulation:
             print("You are using the one-step lookahead pick action method with rollout")
         if actionflag == "manual":
             print("The action is set manually")
-        # Different
-        # print("next_state_1:", self._Model.predict_one([ 1,  0,  7,  1,  0,  9, 10, 13,  6,  9,  8,  8,]))
-        # print("next_state_2:", self._Model.predict_one([ 2,  2,  5,  2,  2,  7, 11, 15,  7,  9,  9,  9,]))
-        # print("next_state_3:", self._Model.predict_one([ 3,  4,  6,  3,  4,  8, 10, 13,  8,  7,  6, 10,]))
-        # print("next_state_4:", self._Model.predict_one([ 4,  6,  7,  4,  6,  9, 11, 15,  6,  7,  7,  8,]))
 
         while self._step < self._max_steps:
 
@@ -246,10 +241,10 @@ class Simulation:
         if self._step == 0:
             return 0
         # Without force setting
-        if current_state[2]>=20 or current_state[5]>=20:
-            return 1
-        elif current_state[8]>=20 or current_state[11]>=20:
-            return 3
+        # if current_state[2]>=20 or current_state[5]>=20:
+        #     return 1
+        # elif current_state[8]>=20 or current_state[11]>=20:
+        #     return 3
         print("old_action", old_action)
         if old_action == -1:
             old_action = 2
@@ -304,7 +299,8 @@ class Simulation:
         """
         if self._step == 0:
             return 0
-        
+        if old_action == -1:
+            old_action = 2
         a_list = []
         # x_k, u_1 evaluation
         action1 = 0
@@ -313,29 +309,16 @@ class Simulation:
         action4 = 3
 
         ################################## For action1 ############################################
-        x_k_plus_1_1 = f_function(self._step, current_state, action1, old_action) # x_{k+1}^1
-        if action1 != old_action:
-            self._set_yellow_phase(old_action)
-            self._simulate(self._yellow_duration)
+        g11 = g_function(current_state, action1, old_action) # g(x_k, u_1)
         
-        self._set_green_phase(action1)
-        self._simulate(self._green_duration)
+        x_k_plus_1_1 = f_function(self._arrival_rate, current_state, action1, old_action) # x_{k+1}^1
         
-        future_total_wait1 = self._collect_waiting_times()
-        g11 = current_total_wait - future_total_wait1 # g(x_k, u_1)
+        
 
         u_k_plus_1_1_hat = np.argmax(self._Model.predict_one(x_k_plus_1_1))
         x_k_plus_2_1 = f_function(self._step, x_k_plus_1_1, u_k_plus_1_1_hat, action1) # x_{k+2}^1
 
-        if u_k_plus_1_1_hat != action1:
-            self._set_yellow_phase(action1)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_1_1_hat)
-        self._simulate(self._green_duration)
-        
-        future_total_wait2 = self._collect_waiting_times()
-        g12 = future_total_wait1 - future_total_wait2 # g(x_k, u_1)
+        g12 = g_function(current_state, u_k_plus_1_1_hat, action1) # g(x_k, u_1)
 
         u_k_plus_2_1_hat = np.argmax(self._Model.predict_one(x_k_plus_2_1))
         x_k_plus_3_1 = f_function(self._step, x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat) # x_{k+3}^1
