@@ -87,12 +87,14 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "one-step"
+        actionflag = "multi-step"
 
         if actionflag == "traditional":
             print("You are using the traditional pick action method without rollout")
         if actionflag == "one-step":
             print("You are using the one-step lookahead pick action method with rollout")
+        if actionflag == "multi-step":
+            print("You are using the multi-step lookahead pick action method with rollout")
         if actionflag == "manual":
             print("The action is set manually")
 
@@ -293,7 +295,7 @@ class Simulation:
         max_index = a_list.index(max(a_list))
         return max_index
 
-    def _pick_a_control_rollout_four_step(self, current_state, current_total_wait, old_action): # four-step look ahead with Q factor approximation
+    def _pick_a_control_rollout_four_step(self, current_state, old_action): # four-step look ahead with Q factor approximation
         """
         Get a control with four step look ahead
         """
@@ -302,7 +304,7 @@ class Simulation:
         if old_action == -1:
             old_action = 2
         a_list = []
-        # x_k, u_1 evaluation
+        
         action1 = 0
         action2 = 1
         action3 = 2
@@ -310,214 +312,90 @@ class Simulation:
 
         ################################## For action1 ############################################
         g11 = g_function(current_state, action1, old_action) # g(x_k, u_1)
-        
         x_k_plus_1_1 = f_function(self._arrival_rate, current_state, action1, old_action) # x_{k+1}^1
-        
-        
-
+        print("x_{k+1}^1", x_k_plus_1_1)
         u_k_plus_1_1_hat = np.argmax(self._Model.predict_one(x_k_plus_1_1))
-        x_k_plus_2_1 = f_function(self._step, x_k_plus_1_1, u_k_plus_1_1_hat, action1) # x_{k+2}^1
+        print("u_k_plus_1_1_hat", u_k_plus_1_1_hat)
 
-        g12 = g_function(current_state, u_k_plus_1_1_hat, action1) # g(x_k, u_1)
-
+        g12 = g_function(x_k_plus_1_1, u_k_plus_1_1_hat, action1) # g(x_k, u_1)
+        x_k_plus_2_1 = f_function(self._arrival_rate, x_k_plus_1_1, u_k_plus_1_1_hat, action1) # x_{k+2}^1
+        print("x_{k+2}^1", x_k_plus_2_1)
         u_k_plus_2_1_hat = np.argmax(self._Model.predict_one(x_k_plus_2_1))
-        x_k_plus_3_1 = f_function(self._step, x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat) # x_{k+3}^1
+        print("u_k_plus_2_1_hat", u_k_plus_2_1_hat)
 
-        if u_k_plus_2_1_hat != u_k_plus_1_1_hat:
-            self._set_yellow_phase(u_k_plus_1_1_hat)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_2_1_hat)
-        self._simulate(self._green_duration)
-
-        future_total_wait3 = self._collect_waiting_times()
-        g13 = future_total_wait2 - future_total_wait3
-
+        g13 = g_function(x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat)
+        x_k_plus_3_1 = f_function(self._arrival_rate, x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat) # x_{k+3}^1
         u_k_plus_3_1_hat = np.argmax(self._Model.predict_one(x_k_plus_3_1))
-        x_k_plus_4_1 = f_function(self._step, x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat) # x_{k+3}^1
 
-        if u_k_plus_3_1_hat != u_k_plus_2_1_hat:
-            self._set_yellow_phase(u_k_plus_2_1_hat)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_3_1_hat)
-        self._simulate(self._green_duration)
-
-        future_total_wait4 = self._collect_waiting_times()
-        g14 = future_total_wait3 - future_total_wait4
-
+        g14 = g_function(x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat)
+        x_k_plus_4_1 = f_function(self._arrival_rate, x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat) # x_{k+3}^1
+        print("If current NS green, four steps later the state is:", x_k_plus_4_1)
         q_hat_1 = self._Model.predict_one(x_k_plus_4_1)
         H1 = np.amax(q_hat_1)
         q_tilde1 = g11 + self._gamma*g12 + self._gamma**2*g13 + self._gamma**3*g14 + self._gamma**4*H1 # evaulation of x_k u_1
+        
         ############################# For action2 ################################
-        x_k_plus_1_2 = f_function(self._step, current_state, action2, old_action) # x_{k+1}^1
-        if action2 != old_action:
-            self._set_yellow_phase(old_action)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(action2)
-        self._simulate(self._green_duration)
-        
-        future_total_wait1 = self._collect_waiting_times()
-        g21 = current_total_wait - future_total_wait1 # g(x_k, u_1)
-
+        g21 = g_function(current_state, action2, old_action) # g(x_k, u_1)
+        x_k_plus_1_2 = f_function(self._arrival_rate, current_state, action2, old_action) # x_{k+1}^1
         u_k_plus_1_2_hat = np.argmax(self._Model.predict_one(x_k_plus_1_2))
-        x_k_plus_2_2 = f_function(self._step, x_k_plus_1_2, u_k_plus_1_2_hat, action2) # x_{k+2}^1
 
-        if u_k_plus_1_2_hat != action2:
-            self._set_yellow_phase(action2)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_1_2_hat)
-        self._simulate(self._green_duration)
-        
-        future_total_wait2 = self._collect_waiting_times()
-        g22 = future_total_wait1 - future_total_wait2 # g(x_k, u_1)
-
+        g22 = g_function(x_k_plus_1_2, u_k_plus_1_2_hat, action2) # g(x_k, u_1)
+        x_k_plus_2_2 = f_function(self._arrival_rate, x_k_plus_1_2, u_k_plus_1_2_hat, action2) # x_{k+2}^1
         u_k_plus_2_2_hat = np.argmax(self._Model.predict_one(x_k_plus_2_2))
-        x_k_plus_3_2 = f_function(self._step, x_k_plus_2_2, u_k_plus_2_2_hat, u_k_plus_1_2_hat) # x_{k+3}^1
 
-        if u_k_plus_2_2_hat != u_k_plus_1_2_hat:
-            self._set_yellow_phase(u_k_plus_1_2_hat)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_2_2_hat)
-        self._simulate(self._green_duration)
-
-        future_total_wait3 = self._collect_waiting_times()
-        g23 = future_total_wait2 - future_total_wait3
-
+        g23 = g_function(x_k_plus_2_2, u_k_plus_2_2_hat, u_k_plus_1_2_hat)
+        x_k_plus_3_2 = f_function(self._arrival_rate, x_k_plus_2_2, u_k_plus_2_2_hat, u_k_plus_1_2_hat) # x_{k+3}^1
         u_k_plus_3_2_hat = np.argmax(self._Model.predict_one(x_k_plus_3_2))
-        x_k_plus_4_2 = f_function(self._step, x_k_plus_3_2, u_k_plus_3_2_hat, u_k_plus_2_2_hat) # x_{k+3}^1
 
-        if u_k_plus_3_2_hat != u_k_plus_2_2_hat:
-            self._set_yellow_phase(u_k_plus_2_2_hat)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_3_2_hat)
-        self._simulate(self._green_duration)
-
-        future_total_wait4 = self._collect_waiting_times()
-        g24 = future_total_wait3 - future_total_wait4
-
+        g24 = g_function(x_k_plus_3_2, u_k_plus_3_2_hat, u_k_plus_2_2_hat)
+        x_k_plus_4_2 = f_function(self._arrival_rate, x_k_plus_3_2, u_k_plus_3_2_hat, u_k_plus_2_2_hat) # x_{k+3}^1
+        print("If current NS Left green, four steps later the state is:", x_k_plus_4_2)
         q_hat_2 = self._Model.predict_one(x_k_plus_4_2)
         H2 = np.amax(q_hat_2)
-        q_tilde2 = g21 + self._gamma*g22 + self._gamma**2*g23 + self._gamma**3*g24 + self._gamma**4*H2
+        q_tilde2 = g21 + self._gamma*g22 + self._gamma**2*g23 + self._gamma**3*g24 + self._gamma**4*H2 # evaulation of x_k u_2
 
         ############################# For action3 ################################
-        x_k_plus_1_3 = f_function(self._step, current_state, action3, old_action) # x_{k+1}^1
-        if action3 != old_action:
-            self._set_yellow_phase(old_action)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(action3)
-        self._simulate(self._green_duration)
-        
-        future_total_wait1 = self._collect_waiting_times()
-        g31 = current_total_wait - future_total_wait1 # g(x_k, u_1)
-
+        g31 = g_function(current_state, action3, old_action) # g(x_k, u_1)
+        x_k_plus_1_3 = f_function(self._arrival_rate, current_state, action3, old_action) # x_{k+1}^1
         u_k_plus_1_3_hat = np.argmax(self._Model.predict_one(x_k_plus_1_3))
-        x_k_plus_2_3 = f_function(self._step, x_k_plus_1_3, u_k_plus_1_3_hat, action3) # x_{k+2}^1
 
-        if u_k_plus_1_3_hat != action3:
-            self._set_yellow_phase(action3)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_1_3_hat)
-        self._simulate(self._green_duration)
-        
-        future_total_wait2 = self._collect_waiting_times()
-        g32 = future_total_wait1 - future_total_wait2 # g(x_k, u_1)
-
+        g32 = g_function(x_k_plus_1_3, u_k_plus_1_3_hat, action3) # g(x_k, u_1)
+        x_k_plus_2_3 = f_function(self._arrival_rate, x_k_plus_1_3, u_k_plus_1_3_hat, action3) # x_{k+2}^1
         u_k_plus_2_3_hat = np.argmax(self._Model.predict_one(x_k_plus_2_3))
-        x_k_plus_3_3 = f_function(self._step, x_k_plus_2_3, u_k_plus_2_3_hat, u_k_plus_1_3_hat) # x_{k+3}^1
 
-        if u_k_plus_2_3_hat != u_k_plus_1_3_hat:
-            self._set_yellow_phase(u_k_plus_1_3_hat)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_2_3_hat)
-        self._simulate(self._green_duration)
-
-        future_total_wait3 = self._collect_waiting_times()
-        g33 = future_total_wait2 - future_total_wait3
-
+        g33 = g_function(x_k_plus_2_3, u_k_plus_2_3_hat, u_k_plus_1_3_hat)
+        x_k_plus_3_3 = f_function(self._arrival_rate, x_k_plus_2_3, u_k_plus_2_3_hat, u_k_plus_1_3_hat) # x_{k+3}^1
         u_k_plus_3_3_hat = np.argmax(self._Model.predict_one(x_k_plus_3_3))
-        x_k_plus_4_3 = f_function(self._step, x_k_plus_3_3, u_k_plus_3_3_hat, u_k_plus_2_3_hat) # x_{k+3}^1
 
-        if u_k_plus_3_3_hat != u_k_plus_2_3_hat:
-            self._set_yellow_phase(u_k_plus_2_3_hat)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_3_3_hat)
-        self._simulate(self._green_duration)
-
-        future_total_wait4 = self._collect_waiting_times()
-        g34 = future_total_wait3 - future_total_wait4
-
+        g34 = g_function(x_k_plus_3_3, u_k_plus_3_3_hat, u_k_plus_2_3_hat)
+        x_k_plus_4_3 = f_function(self._arrival_rate, x_k_plus_3_3, u_k_plus_3_3_hat, u_k_plus_2_3_hat) # x_{k+3}^1
+        print("If current EW green, four steps later the state is:", x_k_plus_4_3)
         q_hat_3 = self._Model.predict_one(x_k_plus_4_3)
         H3 = np.amax(q_hat_3)
-        q_tilde3 = g31 + self._gamma*g32 + self._gamma**2*g33 + self._gamma**3*g34 + self._gamma**4*H3
-
+        q_tilde3 = g31 + self._gamma*g32 + self._gamma**2*g33 + self._gamma**3*g34 + self._gamma**4*H3 # evaluation of x_k u_3
 
         ############################# For action4 ################################
 
-        x_k_plus_1_4 = f_function(self._step, current_state, action4, old_action) # x_{k+1}^1
-        if action4 != old_action:
-            self._set_yellow_phase(old_action)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(action4)
-        self._simulate(self._green_duration)
-        
-        future_total_wait1 = self._collect_waiting_times()
-        g41 = current_total_wait - future_total_wait1 # g(x_k, u_1)
-
+        g41 = g_function(current_state, action4, old_action) # g(x_k, u_1)
+        x_k_plus_1_4 = f_function(self._arrival_rate, current_state, action4, old_action) # x_{k+1}^1
         u_k_plus_1_4_hat = np.argmax(self._Model.predict_one(x_k_plus_1_4))
-        x_k_plus_2_4 = f_function(self._step, x_k_plus_1_4, u_k_plus_1_4_hat, action4) # x_{k+2}^1
 
-        if u_k_plus_1_4_hat != action4:
-            self._set_yellow_phase(action4)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_1_4_hat)
-        self._simulate(self._green_duration)
-        
-        future_total_wait2 = self._collect_waiting_times()
-        g42 = future_total_wait1 - future_total_wait2 # g(x_k, u_1)
-
+        g42 = g_function(x_k_plus_1_4, u_k_plus_1_4_hat, action4) # g(x_k, u_1)
+        x_k_plus_2_4 = f_function(self._arrival_rate, x_k_plus_1_4, u_k_plus_1_4_hat, action4) # x_{k+2}^1
         u_k_plus_2_4_hat = np.argmax(self._Model.predict_one(x_k_plus_2_4))
-        x_k_plus_3_4 = f_function(self._step, x_k_plus_2_4, u_k_plus_2_4_hat, u_k_plus_1_4_hat) # x_{k+3}^1
 
-        if u_k_plus_2_4_hat != u_k_plus_1_4_hat:
-            self._set_yellow_phase(u_k_plus_1_4_hat)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_2_4_hat)
-        self._simulate(self._green_duration)
-
-        future_total_wait3 = self._collect_waiting_times()
-        g43 = future_total_wait2 - future_total_wait3
-
+        g43 = g_function(x_k_plus_2_4, u_k_plus_2_4_hat, u_k_plus_1_4_hat)
+        x_k_plus_3_4 = f_function(self._arrival_rate, x_k_plus_2_4, u_k_plus_2_4_hat, u_k_plus_1_4_hat) # x_{k+3}^1
         u_k_plus_3_4_hat = np.argmax(self._Model.predict_one(x_k_plus_3_4))
-        x_k_plus_4_4 = f_function(self._step, x_k_plus_3_4, u_k_plus_3_4_hat, u_k_plus_2_4_hat) # x_{k+3}^1
 
-        if u_k_plus_3_4_hat != u_k_plus_2_4_hat:
-            self._set_yellow_phase(u_k_plus_2_4_hat)
-            self._simulate(self._yellow_duration)
-        
-        self._set_green_phase(u_k_plus_3_4_hat)
-        self._simulate(self._green_duration)
-
-        future_total_wait4 = self._collect_waiting_times()
-        g44 = future_total_wait3 - future_total_wait4
-
+        g44 = g_function(x_k_plus_3_4, u_k_plus_3_4_hat, u_k_plus_2_4_hat)
+        x_k_plus_4_4 = f_function(self._arrival_rate, x_k_plus_3_4, u_k_plus_3_4_hat, u_k_plus_2_4_hat) # x_{k+3}^1
+        print("If current EW Left green, four steps later the state is:", x_k_plus_4_4)
         q_hat_4 = self._Model.predict_one(x_k_plus_4_4)
         H4 = np.amax(q_hat_4)
-        q_tilde4 = g41 + self._gamma*g42 + self._gamma**2*g43 + self._gamma**3*g44 + self._gamma**4*H4
+        q_tilde4 = g41 + self._gamma*g42 + self._gamma**2*g43 + self._gamma**3*g44 + self._gamma**4*H4 # Evaluation of x_k u_4
 
-
-        # Compare
+        #################### Compare ###############################
 
         a_list.append(q_tilde1)
         a_list.append(q_tilde2)

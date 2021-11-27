@@ -3,12 +3,14 @@ from f_function_arrival_rate import f_function
 
 def g_function(x_k, u_k, u_k_minus_1):
     # x_k_plus_1 = f_function(x_k, u_k, u_k_minus_1) # imagine next state
+    # quadraticflag = 1
+    # if quadraticflag ==1:
+    #     print("You are using the qua")
     gamma = 1.4
     if u_k == 0:
         # 0 1 3 4 can move
         # others produce waiting time
         reward = x_k[2]**2 + x_k[5]**2 + x_k[6]**2 + x_k[7]**2 + x_k[8]**2 + x_k[9]**2 + x_k[10]**2 + x_k[11]**2
-        
     elif u_k == 1:
         # 2,5 can move
         reward = x_k[0]**2 + x_k[1]**2 + x_k[3]**2 + x_k[4]**2 + x_k[6]**2 + x_k[7]**2 + x_k[8]**2 + x_k[9]**2 + x_k[10]**2 + x_k[11]**2
