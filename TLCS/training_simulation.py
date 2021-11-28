@@ -87,7 +87,7 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "multi-step"
+        actionflag = "one-step"
 
         if actionflag == "traditional":
             print("You are using the traditional pick action method without rollout")
@@ -127,8 +127,7 @@ class Simulation:
                     action = 1
             
             reward = g_function(current_state, action, old_action)
-            print("True current_state: ", current_state)
-            print("Current step and its reward:", self._step, reward)
+            print("Current step and state and its reward:", self._step, current_state, reward)
             
             # saving the data into the memory
             if actionflag == "traditional":
@@ -313,6 +312,8 @@ class Simulation:
         ################################## For action1 ############################################
         g11 = g_function(current_state, action1, old_action) # g(x_k, u_1)
         x_k_plus_1_1 = f_function(self._arrival_rate, current_state, action1, old_action) # x_{k+1}^1
+        print("current state, action now, old_action", current_state, action1, old_action)
+        print("for test, current, self._arrival_rate", self._arrival_rate)
         print("x_{k+1}^1", x_k_plus_1_1)
         u_k_plus_1_1_hat = np.argmax(self._Model.predict_one(x_k_plus_1_1))
         print("u_k_plus_1_1_hat", u_k_plus_1_1_hat)
@@ -325,15 +326,18 @@ class Simulation:
 
         g13 = g_function(x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat)
         x_k_plus_3_1 = f_function(self._arrival_rate, x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat) # x_{k+3}^1
+        print("x_{k+3}^1", x_k_plus_3_1)
         u_k_plus_3_1_hat = np.argmax(self._Model.predict_one(x_k_plus_3_1))
+        print("u_k_plus_3_1_hat", u_k_plus_3_1_hat)
 
         g14 = g_function(x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat)
-        x_k_plus_4_1 = f_function(self._arrival_rate, x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat) # x_{k+3}^1
+        x_k_plus_4_1 = f_function(self._arrival_rate, x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat) # x_{k+4}^1
         print("If current NS green, four steps later the state is:", x_k_plus_4_1)
         q_hat_1 = self._Model.predict_one(x_k_plus_4_1)
         H1 = np.amax(q_hat_1)
         q_tilde1 = g11 + self._gamma*g12 + self._gamma**2*g13 + self._gamma**3*g14 + self._gamma**4*H1 # evaulation of x_k u_1
-        
+        print("q_tilde1", q_tilde1)
+
         ############################# For action2 ################################
         g21 = g_function(current_state, action2, old_action) # g(x_k, u_1)
         x_k_plus_1_2 = f_function(self._arrival_rate, current_state, action2, old_action) # x_{k+1}^1
@@ -353,6 +357,7 @@ class Simulation:
         q_hat_2 = self._Model.predict_one(x_k_plus_4_2)
         H2 = np.amax(q_hat_2)
         q_tilde2 = g21 + self._gamma*g22 + self._gamma**2*g23 + self._gamma**3*g24 + self._gamma**4*H2 # evaulation of x_k u_2
+        print("q_tilde2", q_tilde2)
 
         ############################# For action3 ################################
         g31 = g_function(current_state, action3, old_action) # g(x_k, u_1)
@@ -373,6 +378,7 @@ class Simulation:
         q_hat_3 = self._Model.predict_one(x_k_plus_4_3)
         H3 = np.amax(q_hat_3)
         q_tilde3 = g31 + self._gamma*g32 + self._gamma**2*g33 + self._gamma**3*g34 + self._gamma**4*H3 # evaluation of x_k u_3
+        print("q_tilde3", q_tilde3)
 
         ############################# For action4 ################################
 
@@ -394,6 +400,7 @@ class Simulation:
         q_hat_4 = self._Model.predict_one(x_k_plus_4_4)
         H4 = np.amax(q_hat_4)
         q_tilde4 = g41 + self._gamma*g42 + self._gamma**2*g43 + self._gamma**3*g44 + self._gamma**4*H4 # Evaluation of x_k u_4
+        print("q_tilde4", q_tilde4)
 
         #################### Compare ###############################
 

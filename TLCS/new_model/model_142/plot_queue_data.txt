@@ -9,4 +9,5 @@
 48.7255
 59.6235
 
+rollout quadratic g function without constraint
 avg = 56.21155
