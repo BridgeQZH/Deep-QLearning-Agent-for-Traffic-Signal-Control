@@ -87,7 +87,7 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "one-step"
+        actionflag = "traditional"
 
         if actionflag == "traditional":
             print("You are using the traditional pick action method without rollout")
@@ -260,7 +260,6 @@ class Simulation:
         g2 = g_function(current_state, action2, old_action)
         g3 = g_function(current_state, action3, old_action)
         g4 = g_function(current_state, action4, old_action)
-
         
         next_state_1 = f_function(self._arrival_rate, current_state, action1, old_action)
         print("If NS green, next_state:", next_state_1)
@@ -282,6 +281,28 @@ class Simulation:
         
         next_state_4 = f_function(self._arrival_rate, current_state, action4, old_action)
         print("If NS left green, next_state:", next_state_4)
+        print("If NS green, next_state:", next_state_1)
+        ############### Proof ###################
+        """
+        old_action 0
+        If NS green, next_state: [1. 0. 3. 5. 3. 3. 6. 8. 1. 5. 4. 0.]
+        If NS left green, next_state: [1. 1. 1. 5. 5. 0. 6. 9. 1. 5. 5. 0.]
+        If EW green, next_state: [1. 2. 2. 5. 7. 0. 4. 6. 1. 3. 2. 0.]
+        If NS left green, next_state: [1. 3. 3. 5. 9. 0. 4. 7. 0. 3. 3. 0.]
+        If NS green, next_state: [1. 3. 3. 5. 9. 0. 4. 7. 0. 3. 3. 0.] Should not be the same with above line
+        Current step and state and its reward: 320 [1. 3. 3. 5. 9. 0. 4. 7. 0. 3. 3. 0.] -175.0
+        action is East and West Green
+        old_action 2
+
+        DO NOT USE [:], USE .copy() FOR A LIST
+        old_action 0
+        If NS green, next_state: [ 0.  0.  5.  0.  0.  4. 15. 25.  8. 12. 21. 14.]
+        If NS left green, next_state: [ 2.  4.  2.  2.  1.  1. 15. 26.  8. 12. 21. 15.]
+        If EW green, next_state: [ 2.  4.  5.  2.  1.  4. 13. 22.  8. 10. 17. 15.]
+        If NS left green, next_state: [ 2.  4.  5.  2.  1.  4. 15. 26.  5. 12. 21. 12.]
+        If NS green, next_state: [ 0.  0.  5.  0.  0.  4. 15. 25.  8. 12. 21. 14.]
+        """
+
         q_s_a_d4 = self._Model.predict_one(next_state_4)
         H4 = np.amax(q_s_a_d4) 
         q_tilde4 = g4 + self._gamma * H4
@@ -312,23 +333,23 @@ class Simulation:
         ################################## For action1 ############################################
         g11 = g_function(current_state, action1, old_action) # g(x_k, u_1)
         x_k_plus_1_1 = f_function(self._arrival_rate, current_state, action1, old_action) # x_{k+1}^1
-        print("current state, action now, old_action", current_state, action1, old_action)
-        print("for test, current, self._arrival_rate", self._arrival_rate)
-        print("x_{k+1}^1", x_k_plus_1_1)
+        # print("current state, action now, old_action", current_state, action1, old_action)
+        # print("for test, current, self._arrival_rate", self._arrival_rate)
+        # print("x_{k+1}^1", x_k_plus_1_1)
         u_k_plus_1_1_hat = np.argmax(self._Model.predict_one(x_k_plus_1_1))
-        print("u_k_plus_1_1_hat", u_k_plus_1_1_hat)
+        # print("u_k_plus_1_1_hat", u_k_plus_1_1_hat)
 
         g12 = g_function(x_k_plus_1_1, u_k_plus_1_1_hat, action1) # g(x_k, u_1)
         x_k_plus_2_1 = f_function(self._arrival_rate, x_k_plus_1_1, u_k_plus_1_1_hat, action1) # x_{k+2}^1
-        print("x_{k+2}^1", x_k_plus_2_1)
+        # print("x_{k+2}^1", x_k_plus_2_1)
         u_k_plus_2_1_hat = np.argmax(self._Model.predict_one(x_k_plus_2_1))
-        print("u_k_plus_2_1_hat", u_k_plus_2_1_hat)
+        # print("u_k_plus_2_1_hat", u_k_plus_2_1_hat)
 
         g13 = g_function(x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat)
         x_k_plus_3_1 = f_function(self._arrival_rate, x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat) # x_{k+3}^1
-        print("x_{k+3}^1", x_k_plus_3_1)
+        # print("x_{k+3}^1", x_k_plus_3_1)
         u_k_plus_3_1_hat = np.argmax(self._Model.predict_one(x_k_plus_3_1))
-        print("u_k_plus_3_1_hat", u_k_plus_3_1_hat)
+        # print("u_k_plus_3_1_hat", u_k_plus_3_1_hat)
 
         g14 = g_function(x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat)
         x_k_plus_4_1 = f_function(self._arrival_rate, x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat) # x_{k+4}^1

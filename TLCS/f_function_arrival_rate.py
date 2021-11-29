@@ -12,7 +12,7 @@ def f_function(arrival_rate, x_k, u_k, u_k_minus_1):
 
     # k = 208
     
-    x_k_plus_1 = x_k[:] # First copy
+    x_k_plus_1 = x_k.copy() # First copy
     
     if u_k == u_k_minus_1:
         past_time = 1.0
