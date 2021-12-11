@@ -1,6 +1,7 @@
 from numpy.testing._private.utils import HAS_LAPACK64
 import traci
 import numpy as np
+import matplotlib.pyplot as plt 
 import random
 import timeit
 import os
@@ -37,6 +38,7 @@ class Simulation:
         self._cumulative_wait_store = []
         self._avg_queue_length_store = []
         self._training_epochs = training_epochs
+        
 
     def run(self, episode, epsilon):
         """
@@ -87,7 +89,9 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "traditional"
+        actionflag = "one-step"
+        similarity_list = []
+        
 
         if actionflag == "traditional":
             print("You are using the traditional pick action method without rollout")
@@ -127,17 +131,22 @@ class Simulation:
                     action = 1
             
             reward = g_function(current_state, action, old_action)
-            print("Current step and state and its reward:", self._step, current_state, reward)
+            # print("Current step and state and its reward:", self._step, current_state, reward)
+            print("Current step and state:", self._step, current_state)
             
-            # saving the data into the memory
+            # saving the data into the memory for training
             if actionflag == "traditional":
                 if self._step != 0:
                     self._Memory.add_sample((old_state, old_action, reward, current_state))
+
             # You can use these lines to see the difference between real and estimated
-            # if self._step > 215:
-            #     difference = [abs(x1 - x2) for (x1, x2) in zip(current_state,predict_state)]
-            #     similarity = sum(difference) / len(difference)
-            #     print("Average prediction error for each lane: ", similarity)
+            if self._step > 215:
+                difference = [abs(x1 - x2) for (x1, x2) in zip(current_state, predict_state)]
+                similarity = sum(difference) / len(difference)
+                similarity_list.append(similarity)
+                print("Average prediction error for each lane: ", format(similarity, '.3f'))
+                # print(similarity_list)
+
 
             if action == 0:
                 print("action is North and South Green")
@@ -147,9 +156,9 @@ class Simulation:
                 print("action is East and West Green")
             if action == 3:
                 print("action is East and West Left Green")
-            # if self._step > 200:
-            #     predict_state = f_function(self._arrival_rate, current_state, action, old_action)
-            #     print("predict state based on f function (Compare with next true state):", predict_state)
+            if self._step > 200:
+                predict_state = f_function(self._arrival_rate, current_state, action, old_action)
+                print("predict state based on f function (Compare with next true state):", predict_state)
                
             # print("x_k:", current_state)
             # print("u_k:", action)
@@ -178,6 +187,17 @@ class Simulation:
         
         self._save_episode_stats()
         print("Total reward:", self._sum_neg_reward, "- Epsilon:", round(epsilon, 2))
+        x1=list(range(0,len(similarity_list)))
+        y1=similarity_list
+        
+        plt.plot(x1,y1,'ro-')
+        plt.title('The average prediction error for each lane')
+        plt.xlabel('step')
+        plt.ylabel('difference')
+        plt.legend()
+        plt.show()
+
+        
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
 
@@ -283,29 +303,7 @@ class Simulation:
         q_tilde3 = g3 + self._gamma * H3
         
         next_state_4 = f_function(self._arrival_rate, current_state, action4, old_action)
-        print("If NS left green, next_state:", next_state_4)
-        print("If NS green, next_state:", next_state_1)
-        ############### Proof ###################
-        """
-        old_action 0
-        If NS green, next_state: [1. 0. 3. 5. 3. 3. 6. 8. 1. 5. 4. 0.]
-        If NS left green, next_state: [1. 1. 1. 5. 5. 0. 6. 9. 1. 5. 5. 0.]
-        If EW green, next_state: [1. 2. 2. 5. 7. 0. 4. 6. 1. 3. 2. 0.]
-        If NS left green, next_state: [1. 3. 3. 5. 9. 0. 4. 7. 0. 3. 3. 0.]
-        If NS green, next_state: [1. 3. 3. 5. 9. 0. 4. 7. 0. 3. 3. 0.] Should not be the same with above line
-        Current step and state and its reward: 320 [1. 3. 3. 5. 9. 0. 4. 7. 0. 3. 3. 0.] -175.0
-        action is East and West Green
-        old_action 2
-
-        DO NOT USE [:], USE .copy() FOR A LIST
-        old_action 0
-        If NS green, next_state: [ 0.  0.  5.  0.  0.  4. 15. 25.  8. 12. 21. 14.]
-        If NS left green, next_state: [ 2.  4.  2.  2.  1.  1. 15. 26.  8. 12. 21. 15.]
-        If EW green, next_state: [ 2.  4.  5.  2.  1.  4. 13. 22.  8. 10. 17. 15.]
-        If NS left green, next_state: [ 2.  4.  5.  2.  1.  4. 15. 26.  5. 12. 21. 12.]
-        If NS green, next_state: [ 0.  0.  5.  0.  0.  4. 15. 25.  8. 12. 21. 14.]
-        """
-
+        print("If NS left green, next_state:", next_state_4)        
         q_s_a_d4 = self._Model.predict_one(next_state_4)
         H4 = np.amax(q_s_a_d4) 
         q_tilde4 = g4 + self._gamma * H4
@@ -314,7 +312,7 @@ class Simulation:
         a_list.append(q_tilde2)
         a_list.append(q_tilde3)
         a_list.append(q_tilde4)
-        # four Q tilde, see which control wins
+        # four Q tilde, see which control wins, and we pick that control
         max_index = a_list.index(max(a_list))
         return max_index
 
@@ -336,27 +334,19 @@ class Simulation:
         ################################## For action1 ############################################
         g11 = g_function(current_state, action1, old_action) # g(x_k, u_1)
         x_k_plus_1_1 = f_function(self._arrival_rate, current_state, action1, old_action) # x_{k+1}^1
-        # print("current state, action now, old_action", current_state, action1, old_action)
-        # print("for test, current, self._arrival_rate", self._arrival_rate)
-        # print("x_{k+1}^1", x_k_plus_1_1)
         u_k_plus_1_1_hat = np.argmax(self._Model.predict_one(x_k_plus_1_1))
-        # print("u_k_plus_1_1_hat", u_k_plus_1_1_hat)
-
+        
         g12 = g_function(x_k_plus_1_1, u_k_plus_1_1_hat, action1) # g(x_k, u_1)
         x_k_plus_2_1 = f_function(self._arrival_rate, x_k_plus_1_1, u_k_plus_1_1_hat, action1) # x_{k+2}^1
-        # print("x_{k+2}^1", x_k_plus_2_1)
         u_k_plus_2_1_hat = np.argmax(self._Model.predict_one(x_k_plus_2_1))
-        # print("u_k_plus_2_1_hat", u_k_plus_2_1_hat)
 
         g13 = g_function(x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat)
         x_k_plus_3_1 = f_function(self._arrival_rate, x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat) # x_{k+3}^1
-        # print("x_{k+3}^1", x_k_plus_3_1)
         u_k_plus_3_1_hat = np.argmax(self._Model.predict_one(x_k_plus_3_1))
-        # print("u_k_plus_3_1_hat", u_k_plus_3_1_hat)
 
         g14 = g_function(x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat)
         x_k_plus_4_1 = f_function(self._arrival_rate, x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat) # x_{k+4}^1
-        print("If current NS green, four steps later the state is:", x_k_plus_4_1)
+        print("If current NS green, four steps later, the state will be:", x_k_plus_4_1)
         q_hat_1 = self._Model.predict_one(x_k_plus_4_1)
         H1 = np.amax(q_hat_1)
         q_tilde1 = g11 + self._gamma*g12 + self._gamma**2*g13 + self._gamma**3*g14 + self._gamma**4*H1 # evaulation of x_k u_1
@@ -377,7 +367,7 @@ class Simulation:
 
         g24 = g_function(x_k_plus_3_2, u_k_plus_3_2_hat, u_k_plus_2_2_hat)
         x_k_plus_4_2 = f_function(self._arrival_rate, x_k_plus_3_2, u_k_plus_3_2_hat, u_k_plus_2_2_hat) # x_{k+3}^1
-        print("If current NS Left green, four steps later the state is:", x_k_plus_4_2)
+        print("If current NS Left green, four steps later, the state will be:", x_k_plus_4_2)
         q_hat_2 = self._Model.predict_one(x_k_plus_4_2)
         H2 = np.amax(q_hat_2)
         q_tilde2 = g21 + self._gamma*g22 + self._gamma**2*g23 + self._gamma**3*g24 + self._gamma**4*H2 # evaulation of x_k u_2
@@ -398,14 +388,13 @@ class Simulation:
 
         g34 = g_function(x_k_plus_3_3, u_k_plus_3_3_hat, u_k_plus_2_3_hat)
         x_k_plus_4_3 = f_function(self._arrival_rate, x_k_plus_3_3, u_k_plus_3_3_hat, u_k_plus_2_3_hat) # x_{k+3}^1
-        print("If current EW green, four steps later the state is:", x_k_plus_4_3)
+        print("If current EW green, four steps later, the state will be:", x_k_plus_4_3)
         q_hat_3 = self._Model.predict_one(x_k_plus_4_3)
         H3 = np.amax(q_hat_3)
         q_tilde3 = g31 + self._gamma*g32 + self._gamma**2*g33 + self._gamma**3*g34 + self._gamma**4*H3 # evaluation of x_k u_3
         # print("q_tilde3", q_tilde3)
 
-        ############################# For action4 ################################
-
+        ############################# For action4 ###############################
         g41 = g_function(current_state, action4, old_action) # g(x_k, u_1)
         x_k_plus_1_4 = f_function(self._arrival_rate, current_state, action4, old_action) # x_{k+1}^1
         u_k_plus_1_4_hat = np.argmax(self._Model.predict_one(x_k_plus_1_4))
@@ -420,14 +409,13 @@ class Simulation:
 
         g44 = g_function(x_k_plus_3_4, u_k_plus_3_4_hat, u_k_plus_2_4_hat)
         x_k_plus_4_4 = f_function(self._arrival_rate, x_k_plus_3_4, u_k_plus_3_4_hat, u_k_plus_2_4_hat) # x_{k+3}^1
-        print("If current EW Left green, four steps later the state is:", x_k_plus_4_4)
+        print("If current EW Left green, four steps later, the state will be:", x_k_plus_4_4)
         q_hat_4 = self._Model.predict_one(x_k_plus_4_4)
         H4 = np.amax(q_hat_4)
         q_tilde4 = g41 + self._gamma*g42 + self._gamma**2*g43 + self._gamma**3*g44 + self._gamma**4*H4 # Evaluation of x_k u_4
         # print("q_tilde4", q_tilde4)
 
         #################### Compare ###############################
-
         a_list.append(q_tilde1)
         a_list.append(q_tilde2)
         a_list.append(q_tilde3)
