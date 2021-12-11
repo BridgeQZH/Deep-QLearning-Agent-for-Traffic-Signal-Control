@@ -233,6 +233,9 @@ class Simulation:
             return random.randint(0, self._num_actions - 1) # random action - exploration
         else:
             # print("argmax:", np.argmax(self._Model.predict_one(state)))
+            # temp_state = [0,0,0,0]
+            # print(np.argmax(self._Model.predict_one(state)))
+            print(self._Model.predict_one(state))
             return np.argmax(self._Model.predict_one(state)) # the best action given the current state - exploitation
 
     def _pick_a_control_rollout(self, current_state, old_action): # one-step look ahead with Q factor approximation
@@ -357,7 +360,7 @@ class Simulation:
         q_hat_1 = self._Model.predict_one(x_k_plus_4_1)
         H1 = np.amax(q_hat_1)
         q_tilde1 = g11 + self._gamma*g12 + self._gamma**2*g13 + self._gamma**3*g14 + self._gamma**4*H1 # evaulation of x_k u_1
-        print("q_tilde1", q_tilde1)
+        # print("q_tilde1", q_tilde1)
 
         ############################# For action2 ################################
         g21 = g_function(current_state, action2, old_action) # g(x_k, u_1)
@@ -378,7 +381,7 @@ class Simulation:
         q_hat_2 = self._Model.predict_one(x_k_plus_4_2)
         H2 = np.amax(q_hat_2)
         q_tilde2 = g21 + self._gamma*g22 + self._gamma**2*g23 + self._gamma**3*g24 + self._gamma**4*H2 # evaulation of x_k u_2
-        print("q_tilde2", q_tilde2)
+        # print("q_tilde2", q_tilde2)
 
         ############################# For action3 ################################
         g31 = g_function(current_state, action3, old_action) # g(x_k, u_1)
@@ -399,7 +402,7 @@ class Simulation:
         q_hat_3 = self._Model.predict_one(x_k_plus_4_3)
         H3 = np.amax(q_hat_3)
         q_tilde3 = g31 + self._gamma*g32 + self._gamma**2*g33 + self._gamma**3*g34 + self._gamma**4*H3 # evaluation of x_k u_3
-        print("q_tilde3", q_tilde3)
+        # print("q_tilde3", q_tilde3)
 
         ############################# For action4 ################################
 
@@ -421,7 +424,7 @@ class Simulation:
         q_hat_4 = self._Model.predict_one(x_k_plus_4_4)
         H4 = np.amax(q_hat_4)
         q_tilde4 = g41 + self._gamma*g42 + self._gamma**2*g43 + self._gamma**3*g44 + self._gamma**4*H4 # Evaluation of x_k u_4
-        print("q_tilde4", q_tilde4)
+        # print("q_tilde4", q_tilde4)
 
         #################### Compare ###############################
 
@@ -588,6 +591,7 @@ class Simulation:
             for i, b in enumerate(batch):
                 state, action, reward, _ = b[0], b[1], b[2], b[3]  # extract data from one sample
                 current_q = q_s_a[i]  # get the Q(state) predicted before
+                print("current_q", current_q)
                 current_q[action] = reward + self._gamma * np.amax(q_s_a_d[i])  # update Q(state, action)
                 x[i] = state
                 y[i] = current_q  # Q(state) that includes the updated action value

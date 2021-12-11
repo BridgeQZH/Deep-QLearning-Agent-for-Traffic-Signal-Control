@@ -134,6 +134,8 @@ class Simulation:
         Pick the best action known based on the current state of the env
         model.predict returns numpy array(s) of predictions
         """
+        print("Max among four Q", np.max(self._Model.predict_one(state)))
+        print("Full four Q", self._Model.predict_one(state))
         return np.argmax(self._Model.predict_one(state))
 
 
