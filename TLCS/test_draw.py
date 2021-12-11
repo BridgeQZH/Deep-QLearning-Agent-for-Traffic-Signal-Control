@@ -29,7 +29,7 @@ y1=similarity_list
 
 plt.plot(x1,y1,'ro-')
 plt.title('The average prediction error for each lane')
-plt.xlabel('row')
-plt.ylabel('column')
+plt.xlabel('step')
+plt.ylabel('difference')
 plt.legend()
 plt.show()
