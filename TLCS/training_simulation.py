@@ -349,7 +349,8 @@ class Simulation:
         action3 = 2
         action4 = 3
         
-        g1 = g_function(current_state, action1, old_action)
+        g1 = g_function(current_state, action1, old_action) # not change current g_function method, Greedy g function
+        # Rewrite a g_function method, 
         g2 = g_function(current_state, action2, old_action)
         g3 = g_function(current_state, action3, old_action)
         g4 = g_function(current_state, action4, old_action)
