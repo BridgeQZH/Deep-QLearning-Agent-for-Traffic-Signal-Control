@@ -6,7 +6,7 @@ import random
 import timeit
 import os
 from f_function_arrival_rate import f_function
-from reward_by_hand import g_function
+from linear_reward import g_function
 from prolong import prolong
 # from H_function import H_function
 import difflib
@@ -90,7 +90,7 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "one-step"
+        actionflag = "multi-step"
         similarity_list = []
         
 
@@ -102,7 +102,8 @@ class Simulation:
             print("You are using the multi-step lookahead pick action method with rollout")
         if actionflag == "manual":
             print("The action is set manually")
-
+        if actionflag == "greedy":
+            print("You are using the greedy pick action method without rollout")
         while self._step < self._max_steps:
 
             # get current state of the intersection
@@ -125,6 +126,8 @@ class Simulation:
                 action = self._pick_a_control_rollout(current_state, old_action)
             if actionflag == "multi-step":
                 action = self._pick_a_control_rollout_four_step(current_state, old_action)
+            if actionflag == "greedy":
+                action = self._pick_a_control_greedy(current_state, old_action)
             if actionflag == "manual":
                 if self._step <= 800:
                     action = 0
@@ -143,10 +146,10 @@ class Simulation:
             # You can use these lines to see the difference between real and estimated
             # if self._step > 215:
             #     difference = [abs(x1 - x2) for (x1, x2) in zip(current_state, predict_state)]
-            #     similarity = sum(difference) / len(difference)
+            #     similarity = sum(difference) / len(difference) # 12
             #     similarity_list.append(similarity)
             #     print("Average prediction error for each lane: ", format(similarity, '.3f'))
-                # print(similarity_list)
+            #     print(similarity_list)
 
 
             if action == 0:
@@ -316,6 +319,46 @@ class Simulation:
         q_s_a_d4 = self._Model.predict_one(next_state_4)
         H4 = np.amax(q_s_a_d4) 
         q_tilde4 = g4 + self._gamma * H4
+        
+        a_list.append(q_tilde1)
+        a_list.append(q_tilde2)
+        a_list.append(q_tilde3)
+        a_list.append(q_tilde4)
+        # four Q tilde, see which control wins, and we pick that control
+        max_index = a_list.index(max(a_list))
+        return max_index
+
+    def _pick_a_control_greedy(self, current_state, old_action): # one-step look ahead with Q factor approximation
+        """
+        Get a control with one step look ahead
+        """
+        if self._step == 0:
+            return 0
+        # Without force setting
+        # if current_state[2]>=20 or current_state[5]>=20:
+        #     return 1
+        # elif current_state[8]>=20 or current_state[11]>=20:
+        #     return 3
+        print("old_action", old_action)
+        if old_action == -1:
+            old_action = 2
+        a_list = []
+        
+        action1 = 0
+        action2 = 1
+        action3 = 2
+        action4 = 3
+        
+        g1 = g_function(current_state, action1, old_action)
+        g2 = g_function(current_state, action2, old_action)
+        g3 = g_function(current_state, action3, old_action)
+        g4 = g_function(current_state, action4, old_action)
+        
+        
+        q_tilde1 = g1
+        q_tilde2 = g2
+        q_tilde3 = g3
+        q_tilde4 = g4
         
         a_list.append(q_tilde1)
         a_list.append(q_tilde2)
