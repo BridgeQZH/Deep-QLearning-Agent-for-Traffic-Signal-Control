@@ -9,9 +9,7 @@ def f_function(arrival_rate, x_k, u_k, u_k_minus_1):
     # hyperparameter:
     # lamba - arrival rate; time variant, adaptive; Add recorder for the lanes, /10 /50
     # decrease number - the ability for vehicles
-
-    # k = 208
-    
+   
     x_k_plus_1 = x_k.copy() # First copy
     
     if u_k == u_k_minus_1:
@@ -68,17 +66,4 @@ def f_function(arrival_rate, x_k, u_k, u_k_minus_1):
         x_k_plus_1[8] = max(x_k_plus_1[8] - 0.75 * decrease_number, 0)
         x_k_plus_1[11] = max(x_k_plus_1[11] - 0.75 * decrease_number, 0)
 
-    return x_k_plus_1
-
-    # print("x_k_plus_1", x_k_plus_1)
-    # config = import_test_configuration(config_file='testing_settings.ini')
-    # sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
-    # model_path, plot_path = set_test_path(config['models_path_name'], config['model_to_test'])
-    # Model = TestModel(
-    #     input_dim=config['num_states'],
-    #     model_path=model_path
-    # )
-
-    # print("model_predict:", Model.predict_one(x_k_plus_1))
-    
-
+    return x_k_plus_1   

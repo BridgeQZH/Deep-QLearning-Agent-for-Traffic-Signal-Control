@@ -2,10 +2,7 @@
 from f_function_arrival_rate import f_function
 
 def g_function(x_k, u_k, u_k_minus_1):
-    # x_k_plus_1 = f_function(x_k, u_k, u_k_minus_1) # imagine next state
-    # quadraticflag = 1
-    # if quadraticflag ==1:
-    #     print("You are using the qua")
+    
     gamma = 1.4
     if u_k == 0:
         # 0 1 3 4 can move
