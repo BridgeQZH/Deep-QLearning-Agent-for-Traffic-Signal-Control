@@ -28,4 +28,6 @@ def g_function(x_k, u_k, u_k_minus_1, gamma):
     for i in range(time_flag):
         reward += temp_reward * gamma ** i
     reward = -reward
+    if u_k != u_k_minus_1:
+        reward *= 1.4
     return reward, time_flag # Should be a sum of 10 or 14 terms

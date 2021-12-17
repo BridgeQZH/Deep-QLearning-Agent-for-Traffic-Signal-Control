@@ -7,6 +7,7 @@ import timeit
 import os
 from f_function_arrival_rate import f_function
 from quadratic_reward_divided import g_function
+# from quadratic_reward import g_function
 from quadratic_reward_last_term import g_function_last_term
 # from prolong import prolong
 # from H_function import H_function
@@ -91,7 +92,7 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "multi-step"
+        actionflag = "one-step"
         similarity_list = []
         
 
@@ -134,8 +135,12 @@ class Simulation:
                     action = 0
                 else:
                     action = 1
-            
+            # Sliced reward #
             reward, _ = g_function(current_state, action, old_action, self._gamma)
+
+            # Normal reward #
+            # reward = g_function(current_state, action, old_action, self._gamma)
+
             # print("Current step and state and its reward:", self._step, current_state, reward)
             print("Current step and state:", self._step, current_state)
             
@@ -274,7 +279,7 @@ class Simulation:
         #     return 1
         # elif current_state[8]>=20 or current_state[11]>=20:
         #     return 3
-        print("old_action", old_action)
+        # print("old_action", old_action)
         if old_action == -1:
             old_action = 2
         a_list = []
@@ -283,35 +288,41 @@ class Simulation:
         action2 = 1
         action3 = 2
         action4 = 3
-        
-        g1 = g_function(current_state, action1, old_action, self._gamma)
-        g2 = g_function(current_state, action2, old_action, self._gamma)
-        g3 = g_function(current_state, action3, old_action, self._gamma)
-        g4 = g_function(current_state, action4, old_action, self._gamma)
+        truncated_point = 15
+
+        g1, past_time1 = g_function(current_state, action1, old_action, self._gamma)
+        g2, past_time2 = g_function(current_state, action2, old_action, self._gamma)
+        g3, past_time3 = g_function(current_state, action3, old_action, self._gamma)
+        g4, past_time4 = g_function(current_state, action4, old_action, self._gamma)
         
         next_state_1 = f_function(self._arrival_rate, current_state, action1, old_action)
         print("If NS green, next_state:", next_state_1)
-        q_s_a_d1 = self._Model.predict_one(next_state_1)
-        H1 = np.amax(q_s_a_d1) # H_{k+1}(x_{k+1}^1)
-        q_tilde1 = g1 + self._gamma * H1 # x_k, u_1 evaluation
+        u1 = self._pick_a_control_greedy(next_state_1, action1)
+        H1 = g_function_last_term(next_state_1, u1, action1, self._gamma, truncated_point,\
+             past_time1)
+        q_tilde1 = g1 + self._gamma ** past_time1 * H1 # x_k, u_1 evaluation
         
         next_state_2 = f_function(self._arrival_rate, current_state, action2, old_action)
         print("If NS left green, next_state:", next_state_2)
-        q_s_a_d2 = self._Model.predict_one(next_state_2)
-        H2 = np.amax(q_s_a_d2) 
-        q_tilde2 = g2 + self._gamma * H2
+        u2 = self._pick_a_control_greedy(next_state_2, action2)
+        H2 = g_function_last_term(next_state_2, u2, action2, self._gamma, truncated_point,\
+             past_time2)
+        q_tilde2 = g2 + self._gamma ** past_time2 * H2 # x_k, u_2 evaluation
+        
 
         next_state_3 = f_function(self._arrival_rate, current_state, action3, old_action)
         print("If EW green, next_state:", next_state_3)
-        q_s_a_d3 = self._Model.predict_one(next_state_3)
-        H3 = np.amax(q_s_a_d3) 
-        q_tilde3 = g3 + self._gamma * H3
+        u3 = self._pick_a_control_greedy(next_state_3, action3)
+        H3 = g_function_last_term(next_state_3, u3, action3, self._gamma, truncated_point,\
+             past_time3)
+        q_tilde3 = g3 + self._gamma ** past_time3 * H3 # x_k, u_3 evaluation
         
         next_state_4 = f_function(self._arrival_rate, current_state, action4, old_action)
         print("If NS left green, next_state:", next_state_4)        
-        q_s_a_d4 = self._Model.predict_one(next_state_4)
-        H4 = np.amax(q_s_a_d4) 
-        q_tilde4 = g4 + self._gamma * H4
+        u4 = self._pick_a_control_greedy(next_state_4, action4)
+        H4 = g_function_last_term(next_state_4, u4, action4, self._gamma, truncated_point,\
+             past_time4)
+        q_tilde4 = g4 + self._gamma ** past_time4 * H4 # x_k, u_1 evaluation
         
         a_list.append(q_tilde1)
         a_list.append(q_tilde2)
@@ -357,7 +368,7 @@ class Simulation:
         a_list.append(q_tilde2)
         a_list.append(q_tilde3)
         a_list.append(q_tilde4)
-        # four Q tilde, see which control wins, and we pick that control
+        # four Q tilde, we see which control wins, and then we pick that control as input
         max_index = a_list.index(max(a_list))
         return max_index
 

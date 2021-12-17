@@ -1,7 +1,7 @@
 
 from f_function_arrival_rate import f_function
 
-def g_function(x_k, u_k, u_k_minus_1):
+def g_function(x_k, u_k, u_k_minus_1, gamma_not_used):
     """
     This g function aims to represent the reward using the quadratic terms. For each waiting line, the term equals to the square of the number of waiting vehicles.
     """
