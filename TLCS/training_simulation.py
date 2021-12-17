@@ -7,6 +7,7 @@ import timeit
 import os
 from f_function_arrival_rate import f_function
 from linear_reward import g_function
+from quadratic_reward_last_term import g_function_last_term
 # from prolong import prolong
 # from H_function import H_function
 import difflib
@@ -134,7 +135,7 @@ class Simulation:
                 else:
                     action = 1
             
-            reward = g_function(current_state, action, old_action)
+            reward, _ = g_function(current_state, action, old_action, self._gamma)
             # print("Current step and state and its reward:", self._step, current_state, reward)
             print("Current step and state:", self._step, current_state)
             
@@ -283,10 +284,10 @@ class Simulation:
         action3 = 2
         action4 = 3
         
-        g1 = g_function(current_state, action1, old_action)
-        g2 = g_function(current_state, action2, old_action)
-        g3 = g_function(current_state, action3, old_action)
-        g4 = g_function(current_state, action4, old_action)
+        g1 = g_function(current_state, action1, old_action, self._gamma)
+        g2 = g_function(current_state, action2, old_action, self._gamma)
+        g3 = g_function(current_state, action3, old_action, self._gamma)
+        g4 = g_function(current_state, action4, old_action, self._gamma)
         
         next_state_1 = f_function(self._arrival_rate, current_state, action1, old_action)
         print("If NS green, next_state:", next_state_1)
@@ -341,10 +342,10 @@ class Simulation:
         action3 = 2
         action4 = 3
         
-        g1 = g_function(current_state, action1, old_action)
-        g2 = g_function(current_state, action2, old_action)
-        g3 = g_function(current_state, action3, old_action)
-        g4 = g_function(current_state, action4, old_action)
+        g1 = g_function(current_state, action1, old_action, self._gamma)
+        g2 = g_function(current_state, action2, old_action, self._gamma)
+        g3 = g_function(current_state, action3, old_action, self._gamma)
+        g4 = g_function(current_state, action4, old_action, self._gamma)
         
         
         q_tilde1 = g1
@@ -374,89 +375,115 @@ class Simulation:
         action2 = 1
         action3 = 2
         action4 = 3
-
+        truncated_point = 60
         ################################## For action1 ############################################
-        g11 = g_function(current_state, action1, old_action) # g(x_k, u_1)
+        g11, past_time1 = g_function(current_state, action1, old_action, self._gamma) # g(x_k, u_1)
         x_k_plus_1_1 = f_function(self._arrival_rate, current_state, action1, old_action) # x_{k+1}^1
-        u_k_plus_1_1_hat = np.argmax(self._Model.predict_one(x_k_plus_1_1))
+        u_k_plus_1_1_hat = self._pick_a_control_greedy(x_k_plus_1_1, action1)
         
-        g12 = g_function(x_k_plus_1_1, u_k_plus_1_1_hat, action1) # g(x_k, u_1)
+        g12, past_time2 = g_function(x_k_plus_1_1, u_k_plus_1_1_hat, action1, self._gamma) # g(x_k, u_1)
         x_k_plus_2_1 = f_function(self._arrival_rate, x_k_plus_1_1, u_k_plus_1_1_hat, action1) # x_{k+2}^1
-        u_k_plus_2_1_hat = np.argmax(self._Model.predict_one(x_k_plus_2_1))
+        u_k_plus_2_1_hat = self._pick_a_control_greedy(x_k_plus_2_1, u_k_plus_1_1_hat)
 
-        g13 = g_function(x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat)
+        g13, past_time3 = g_function(x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat, self._gamma)
         x_k_plus_3_1 = f_function(self._arrival_rate, x_k_plus_2_1, u_k_plus_2_1_hat, u_k_plus_1_1_hat) # x_{k+3}^1
-        u_k_plus_3_1_hat = np.argmax(self._Model.predict_one(x_k_plus_3_1))
+        u_k_plus_3_1_hat = self._pick_a_control_greedy(x_k_plus_3_1, u_k_plus_2_1_hat)
 
-        g14 = g_function(x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat)
+        g14, past_time4 = g_function(x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat, self._gamma)
         x_k_plus_4_1 = f_function(self._arrival_rate, x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat) # x_{k+4}^1
         print("If current NS green, four steps later, the state will be:", x_k_plus_4_1)
-        q_hat_1 = self._Model.predict_one(x_k_plus_4_1)
-        H1 = np.amax(q_hat_1)
-        q_tilde1 = g11 + self._gamma*g12 + self._gamma**2*g13 + self._gamma**3*g14 + self._gamma**4*H1 # evaulation of x_k u_1
+        u_k_plus_4_1_hat = self._pick_a_control_greedy(x_k_plus_4_1, u_k_plus_3_1_hat)
+
+        H1 = g_function_last_term(x_k_plus_4_1, u_k_plus_4_1_hat, u_k_plus_3_1_hat, self._gamma, truncated_point,\
+             past_time1 + past_time2 + past_time3 + past_time4) # Base policy as greedy policy
+        
+        q_tilde1 = g11 + \
+            self._gamma ** past_time1 * g12 + \
+                self._gamma ** (past_time1 + past_time2) * g13 + \
+                    self._gamma ** (past_time1 + past_time2 + past_time3) * g14 + \
+                        self._gamma ** (past_time1 + past_time2 + past_time3 + past_time4) * H1 # evaulation of x_k u_1
         # print("q_tilde1", q_tilde1)
 
         ############################# For action2 ################################
-        g21 = g_function(current_state, action2, old_action) # g(x_k, u_1)
+        g21, past_time1 = g_function(current_state, action2, old_action, self._gamma) # g(x_k, u_1)
         x_k_plus_1_2 = f_function(self._arrival_rate, current_state, action2, old_action) # x_{k+1}^1
-        u_k_plus_1_2_hat = np.argmax(self._Model.predict_one(x_k_plus_1_2))
-
-        g22 = g_function(x_k_plus_1_2, u_k_plus_1_2_hat, action2) # g(x_k, u_1)
+        u_k_plus_1_2_hat = self._pick_a_control_greedy(x_k_plus_1_2, action2)
+        
+        g22, past_time2 = g_function(x_k_plus_1_2, u_k_plus_1_2_hat, action2, self._gamma) # g(x_k, u_1)
         x_k_plus_2_2 = f_function(self._arrival_rate, x_k_plus_1_2, u_k_plus_1_2_hat, action2) # x_{k+2}^1
-        u_k_plus_2_2_hat = np.argmax(self._Model.predict_one(x_k_plus_2_2))
+        u_k_plus_2_2_hat = self._pick_a_control_greedy(x_k_plus_2_2, u_k_plus_1_2_hat)
 
-        g23 = g_function(x_k_plus_2_2, u_k_plus_2_2_hat, u_k_plus_1_2_hat)
+        g23, past_time3 = g_function(x_k_plus_2_2, u_k_plus_2_2_hat, u_k_plus_1_2_hat, self._gamma)
         x_k_plus_3_2 = f_function(self._arrival_rate, x_k_plus_2_2, u_k_plus_2_2_hat, u_k_plus_1_2_hat) # x_{k+3}^1
-        u_k_plus_3_2_hat = np.argmax(self._Model.predict_one(x_k_plus_3_2))
+        u_k_plus_3_2_hat = self._pick_a_control_greedy(x_k_plus_3_2, u_k_plus_2_2_hat)
 
-        g24 = g_function(x_k_plus_3_2, u_k_plus_3_2_hat, u_k_plus_2_2_hat)
-        x_k_plus_4_2 = f_function(self._arrival_rate, x_k_plus_3_2, u_k_plus_3_2_hat, u_k_plus_2_2_hat) # x_{k+3}^1
-        print("If current NS Left green, four steps later, the state will be:", x_k_plus_4_2)
-        q_hat_2 = self._Model.predict_one(x_k_plus_4_2)
-        H2 = np.amax(q_hat_2)
-        q_tilde2 = g21 + self._gamma*g22 + self._gamma**2*g23 + self._gamma**3*g24 + self._gamma**4*H2 # evaulation of x_k u_2
-        # print("q_tilde2", q_tilde2)
+        g24, past_time4 = g_function(x_k_plus_3_2, u_k_plus_3_2_hat, u_k_plus_2_2_hat, self._gamma)
+        x_k_plus_4_2 = f_function(self._arrival_rate, x_k_plus_3_2, u_k_plus_3_2_hat, u_k_plus_2_2_hat) # x_{k+4}^1
+        print("If current NS green, four steps later, the state will be:", x_k_plus_4_2)
+        u_k_plus_4_2_hat = self._pick_a_control_greedy(x_k_plus_4_2, u_k_plus_3_2_hat)
 
+        H2 = g_function_last_term(x_k_plus_4_2, u_k_plus_4_2_hat, u_k_plus_3_2_hat, self._gamma, truncated_point,\
+             past_time1 + past_time2 + past_time3 + past_time4) # Base policy as greedy policy
+        
+        q_tilde2 = g21 + \
+            self._gamma ** past_time1 * g22 + \
+                self._gamma ** (past_time1 + past_time2) * g23 + \
+                    self._gamma ** (past_time1 + past_time2 + past_time3) * g24 + \
+                        self._gamma ** (past_time1 + past_time2 + past_time3 + past_time4) * H2 # evaulation of x_k u_2
+      
         ############################# For action3 ################################
-        g31 = g_function(current_state, action3, old_action) # g(x_k, u_1)
+        g31, past_time1 = g_function(current_state, action3, old_action, self._gamma) # g(x_k, u_1)
         x_k_plus_1_3 = f_function(self._arrival_rate, current_state, action3, old_action) # x_{k+1}^1
-        u_k_plus_1_3_hat = np.argmax(self._Model.predict_one(x_k_plus_1_3))
+        u_k_plus_1_3_hat = self._pick_a_control_greedy(x_k_plus_1_3, action3)
 
-        g32 = g_function(x_k_plus_1_3, u_k_plus_1_3_hat, action3) # g(x_k, u_1)
+        g32, past_time2 = g_function(x_k_plus_1_3, u_k_plus_1_3_hat, action3, self._gamma) # g(x_k, u_1)
         x_k_plus_2_3 = f_function(self._arrival_rate, x_k_plus_1_3, u_k_plus_1_3_hat, action3) # x_{k+2}^1
-        u_k_plus_2_3_hat = np.argmax(self._Model.predict_one(x_k_plus_2_3))
+        u_k_plus_2_3_hat = self._pick_a_control_greedy(x_k_plus_2_3, u_k_plus_1_3_hat)
 
-        g33 = g_function(x_k_plus_2_3, u_k_plus_2_3_hat, u_k_plus_1_3_hat)
+        g33, past_time3 = g_function(x_k_plus_2_3, u_k_plus_2_3_hat, u_k_plus_1_3_hat, self._gamma)
         x_k_plus_3_3 = f_function(self._arrival_rate, x_k_plus_2_3, u_k_plus_2_3_hat, u_k_plus_1_3_hat) # x_{k+3}^1
-        u_k_plus_3_3_hat = np.argmax(self._Model.predict_one(x_k_plus_3_3))
+        u_k_plus_3_3_hat = self._pick_a_control_greedy(x_k_plus_3_3, u_k_plus_2_3_hat)
 
-        g34 = g_function(x_k_plus_3_3, u_k_plus_3_3_hat, u_k_plus_2_3_hat)
+        g34, past_time4 = g_function(x_k_plus_3_3, u_k_plus_3_3_hat, u_k_plus_2_3_hat, self._gamma)
         x_k_plus_4_3 = f_function(self._arrival_rate, x_k_plus_3_3, u_k_plus_3_3_hat, u_k_plus_2_3_hat) # x_{k+3}^1
         print("If current EW green, four steps later, the state will be:", x_k_plus_4_3)
-        q_hat_3 = self._Model.predict_one(x_k_plus_4_3)
-        H3 = np.amax(q_hat_3)
-        q_tilde3 = g31 + self._gamma*g32 + self._gamma**2*g33 + self._gamma**3*g34 + self._gamma**4*H3 # evaluation of x_k u_3
-        # print("q_tilde3", q_tilde3)
+        u_k_plus_4_3_hat = self._pick_a_control_greedy(x_k_plus_4_3, u_k_plus_3_3_hat)
+
+        H3 = g_function_last_term(x_k_plus_4_3, u_k_plus_4_3_hat, u_k_plus_3_3_hat, self._gamma, truncated_point,\
+             past_time1 + past_time2 + past_time3 + past_time4) # Base policy as greedy policy
+        
+        q_tilde3 = g31 + \
+            self._gamma ** past_time1 * g32 + \
+                self._gamma ** (past_time1 + past_time2) * g33 + \
+                    self._gamma ** (past_time1 + past_time2 + past_time3) * g34 + \
+                        self._gamma ** (past_time1 + past_time2 + past_time3 + past_time4) * H3 # evaulation of x_k u_3
 
         ############################# For action4 ###############################
-        g41 = g_function(current_state, action4, old_action) # g(x_k, u_1)
+        g41, past_time1 = g_function(current_state, action4, old_action, self._gamma) # g(x_k, u_1)
         x_k_plus_1_4 = f_function(self._arrival_rate, current_state, action4, old_action) # x_{k+1}^1
-        u_k_plus_1_4_hat = np.argmax(self._Model.predict_one(x_k_plus_1_4))
+        u_k_plus_1_4_hat = self._pick_a_control_greedy(x_k_plus_1_4, action4)
 
-        g42 = g_function(x_k_plus_1_4, u_k_plus_1_4_hat, action4) # g(x_k, u_1)
+        g42, past_time2 = g_function(x_k_plus_1_4, u_k_plus_1_4_hat, action4, self._gamma) # g(x_k, u_1)
         x_k_plus_2_4 = f_function(self._arrival_rate, x_k_plus_1_4, u_k_plus_1_4_hat, action4) # x_{k+2}^1
-        u_k_plus_2_4_hat = np.argmax(self._Model.predict_one(x_k_plus_2_4))
+        u_k_plus_2_4_hat = self._pick_a_control_greedy(x_k_plus_2_4, u_k_plus_1_4_hat)
 
-        g43 = g_function(x_k_plus_2_4, u_k_plus_2_4_hat, u_k_plus_1_4_hat)
+        g43, past_time3 = g_function(x_k_plus_2_4, u_k_plus_2_4_hat, u_k_plus_1_4_hat, self._gamma)
         x_k_plus_3_4 = f_function(self._arrival_rate, x_k_plus_2_4, u_k_plus_2_4_hat, u_k_plus_1_4_hat) # x_{k+3}^1
-        u_k_plus_3_4_hat = np.argmax(self._Model.predict_one(x_k_plus_3_4))
+        u_k_plus_3_4_hat = self._pick_a_control_greedy(x_k_plus_3_4, u_k_plus_2_4_hat)
 
-        g44 = g_function(x_k_plus_3_4, u_k_plus_3_4_hat, u_k_plus_2_4_hat)
+        g44, past_time4 = g_function(x_k_plus_3_4, u_k_plus_3_4_hat, u_k_plus_2_4_hat, self._gamma)
         x_k_plus_4_4 = f_function(self._arrival_rate, x_k_plus_3_4, u_k_plus_3_4_hat, u_k_plus_2_4_hat) # x_{k+3}^1
         print("If current EW Left green, four steps later, the state will be:", x_k_plus_4_4)
-        q_hat_4 = self._Model.predict_one(x_k_plus_4_4)
-        H4 = np.amax(q_hat_4)
-        q_tilde4 = g41 + self._gamma*g42 + self._gamma**2*g43 + self._gamma**3*g44 + self._gamma**4*H4 # Evaluation of x_k u_4
+        u_k_plus_4_4_hat = self._pick_a_control_greedy(x_k_plus_4_4, u_k_plus_3_4_hat)
+
+        H4 = g_function_last_term(x_k_plus_4_4, u_k_plus_4_4_hat, u_k_plus_3_4_hat, self._gamma, truncated_point,\
+             past_time1 + past_time2 + past_time3 + past_time4) # Base policy as greedy policy
+        
+        q_tilde4 = g41 + \
+            self._gamma ** past_time1 * g42 + \
+                self._gamma ** (past_time1 + past_time2) * g43 + \
+                    self._gamma ** (past_time1 + past_time2 + past_time3) * g44 + \
+                        self._gamma ** (past_time1 + past_time2 + past_time3 + past_time4) * H4 # Evaluation of x_k u_4
         # print("q_tilde4", q_tilde4)
 
         #################### Compare ###############################

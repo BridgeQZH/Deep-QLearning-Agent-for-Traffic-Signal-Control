@@ -7,7 +7,10 @@ x_k_plus_1 = f_function(arrival_rate, x_k, u_k, u_k_minus_1)
 print(x_k_plus_1)
 
 
-
+# a = 1 + \
+#     2 + \
+#         3
+# print(a)
 
 
 # for u_k in range(4):
