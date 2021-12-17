@@ -6,7 +6,7 @@ import random
 import timeit
 import os
 from f_function_arrival_rate import f_function
-from linear_reward import g_function
+from quadratic_reward_divided import g_function
 from quadratic_reward_last_term import g_function_last_term
 # from prolong import prolong
 # from H_function import H_function
