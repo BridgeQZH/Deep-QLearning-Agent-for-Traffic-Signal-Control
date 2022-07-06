@@ -4,7 +4,8 @@ from __future__ import print_function
 import os
 from shutil import copyfile
 
-from testing_simulation import Simulation
+from testing_simulation_fixed import Simulation # To see how the normal way affect the result
+# from testing_simulation import Simulation
 from generator import TrafficGenerator
 from model import TestModel
 from visualization import Visualization
@@ -60,7 +61,7 @@ if __name__ == "__main__":
 
     print("----- Testing info saved at:", plot_path)
 
-    copyfile(src='testing_settings.ini', dst=os.path.join(plot_path, 'testing_settings.ini'))
+    copyfile(src='testing_settings.ini', dst=os.path.join(plot_path, 'testing_settings.ini')) # source, destination
 
     Visualization.save_data_and_plot(data=Simulation.reward_episode, filename='reward', xlabel='Action step', ylabel='Reward')
     Visualization.save_data_and_plot(data=Simulation.queue_length_episode, filename='queue', xlabel='Step', ylabel='Queue length (vehicles)')

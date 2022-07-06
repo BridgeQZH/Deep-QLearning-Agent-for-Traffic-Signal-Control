@@ -51,9 +51,10 @@ class Simulation:
         old_action = -1 # dummy init
 
         while self._step < self._max_steps:
+
             # get current state of the intersection
             current_state = self._get_state()
-            
+
             # calculate reward of previous action: (change in cumulative waiting time between actions)
             # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
             current_total_wait = self._collect_waiting_times()
