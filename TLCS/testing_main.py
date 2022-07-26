@@ -4,19 +4,19 @@ from __future__ import print_function
 import os
 from shutil import copyfile
 
-from testing_simulation_fixed import Simulation # To see how the normal way affect the result
-# from testing_simulation import Simulation
+# from testing_simulation_fixed import Simulation # To see how the normal way affect the result
+from testing_simulation import Simulation
 from generator import TrafficGenerator
 from model import TestModel
 from visualization import Visualization
 from utils import import_test_configuration, set_sumo, set_test_path
 
-# TODO: 1. Add testing env stochasity in to heter
+# TODO: 1. Add testing env stochasity in to heterogeneous
 # TODO: Provide NN hyperparameters choosing argument, when it cannot produce good enough results; Even though, having some arguments
 # TODO: 2. New state representation ; New NN architecture. Solid step to push Rollout; System equation rather than transition probablity.
-# Vector -> New Vector may be high dim
+# Vector -> New Vector may be high dimension
 # Compact state  - + 
-# System equation easier. sampling time & duration time 
+# System equation easier, sampling time & duration time
 
 
 
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         config['num_actions']
     )
 
-    print('\n----- Test episode')
+    print('\n----- Test episode -----')
     simulation_time = Simulation.run(config['episode_seed'])  # run the simulation
     print('Simulation time:', simulation_time, 's')
     

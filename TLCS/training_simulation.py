@@ -50,7 +50,7 @@ class Simulation:
         start_time = timeit.default_timer()
 
         # first, generate the route file for this simulation and set up sumo
-        self._TrafficGen.generate_routefile(seed=episode)
+        self._TrafficGen.generate_routefile(seed=10000)
         traci.start(self._sumo_cmd)
         print("Simulating...")
 
@@ -92,7 +92,7 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "multi-step"
+        actionflag = "one-step"
         similarity_list = []
         
 
@@ -265,7 +265,7 @@ class Simulation:
             # print("argmax:", np.argmax(self._Model.predict_one(state)))
             # temp_state = [0,0,0,0]
             # print(np.argmax(self._Model.predict_one(state)))
-            print(self._Model.predict_one(state))
+            # print(self._Model.predict_one(state))
             return np.argmax(self._Model.predict_one(state)) # the best action given the current state - exploitation
 
     def _pick_a_control_rollout(self, current_state, old_action): # one-step look ahead with Q factor approximation

@@ -3,7 +3,7 @@ import numpy as np
 import random
 import timeit
 import os
-from linear_reward import g_function
+from quadratic_reward_divided import g_function
 
 # phase codes based on environment.net.xml
 PHASE_NS_GREEN = 0  # action 0 code 00
@@ -62,7 +62,7 @@ class Simulation:
             # choose the light phase to activate, based on the current state of the intersection
             action = self._choose_action(current_state)
 
-            reward = g_function(current_state, action, old_action)
+            reward, _ = g_function(current_state, action, old_action, 0.98)
             print("step:",  self._step, "reward:", reward)
             if action == 0:
                 print("action is North and South Green")
@@ -88,7 +88,7 @@ class Simulation:
             self._reward_episode.append(reward)
             print("step:", self._step, "current step reward:", reward)
 
-        # print("Total reward:", np.sum(self._reward_episode)) # A very small number
+        print("Total reward:", np.sum(self._reward_episode)) # A very small number
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
 
@@ -133,8 +133,8 @@ class Simulation:
         Pick the best action known based on the current state of the env
         model.predict returns numpy array(s) of predictions
         """
-        print("Max among four Q", np.max(self._Model.predict_one(state)))
-        print("Full four Q", self._Model.predict_one(state))
+        # print("Max among four Q", np.max(self._Model.predict_one(state)))
+        # print("Full four Q", self._Model.predict_one(state))
         return np.argmax(self._Model.predict_one(state))
 
 

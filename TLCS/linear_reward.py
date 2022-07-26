@@ -1,4 +1,4 @@
-from f_function_arrival_rate import f_function
+# from f_function_arrival_rate import f_function
 
 def g_function(x_k, u_k, u_k_minus_1):
   # x_k_plus_1 = f_function(x_k, u_k, u_k_minus_1) # imagine next state
