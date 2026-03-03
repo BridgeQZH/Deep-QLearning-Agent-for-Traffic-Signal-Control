@@ -9,6 +9,7 @@ from training_simulation import Simulation
 from generator import TrafficGenerator
 from memory import Memory
 from visualization import Visualization
+from model import TrainModel
 from utils import import_train_configuration, set_sumo, set_train_path
 
 
@@ -16,10 +17,17 @@ if __name__ == "__main__":
 
     config = import_train_configuration(config_file='training_settings.ini')
     sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
-    path = set_train_path(config['models_path_name'])
+    path = set_train_path(config['models_path_name'], config['experiment_name'])
     print("Model saved to:", path)
 
-    Model = None  # no model needed for fixed-time control
+    Model = TrainModel(
+        config['num_layers'],
+        config['width_layers'],
+        config['batch_size'],
+        config['learning_rate'],
+        input_dim=config['num_states'],
+        output_dim=config['num_actions']
+    )
 
     Memory = Memory(
         config['memory_size_max'], 
@@ -71,6 +79,6 @@ if __name__ == "__main__":
     Visualization.save_data_and_plot(data=Simulation.cumulative_wait_store, filename='delay', xlabel='Episode', ylabel='Cumulative delay (s)')
     Visualization.save_data_and_plot(data=Simulation.avg_queue_length_store, filename='queue', xlabel='Episode', ylabel='Average queue length (vehicles)')
 
-    # Model.save_model(path)
+    Model.save_model(path)
 
     

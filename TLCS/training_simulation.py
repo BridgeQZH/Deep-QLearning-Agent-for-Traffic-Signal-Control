@@ -51,7 +51,7 @@ class Simulation:
         start_time = timeit.default_timer()
 
         # first, generate the route file for this simulation and set up sumo
-        self._TrafficGen.generate_routefile(seed=10000)
+        self._TrafficGen.generate_routefile(seed=episode)
         traci.start(self._sumo_cmd)
         print("Simulating...")
 
@@ -93,7 +93,7 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "manual"
+        actionflag = "traditional"
         similarity_list = []
         phase_index = 0  # counter for fixed-time cycling
         
@@ -110,62 +110,33 @@ class Simulation:
             print("You are using the greedy pick action method without rollout")
         while self._step < self._max_steps:
 
-            # get current state of the intersection
+            # get current state (24-dim: normalized counts + normalized wait times)
             current_state = self._get_state()
-            # print("lane_recorder situation:", self._lane_recorder)
-            # calculate reward of previous action: (change in cumulative waiting time between actions)
-            # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
-            # current_total_wait = self._collect_waiting_times()
-            # reward = old_total_wait - current_total_wait # Difference of accumulated total waiting time
-            
 
-            # choose the light phase to activate, based on the current state of the intersection
-            # action = self._pick_a_control_rollout(current_state, current_total_wait, old_action)
-            # action = self._pick_a_control_rollout_four_step(current_state, current_total_wait, old_action)
+            # reward for the PREVIOUS action: reduction in cumulative waiting time
+            current_total_wait = self._collect_waiting_times()
+            reward = old_total_wait - current_total_wait  # positive = queues improved
 
-            
+            # choose action
             if actionflag == "traditional":
-                action = self._choose_action(current_state, epsilon) # 0 1 2 3
+                action = self._choose_action(current_state, epsilon)
             if actionflag == "one-step":
-                action = self._pick_a_control_rollout(current_state, old_action)
+                # rollout uses self._last_counts (12-dim raw) for g_function/f_function
+                action = self._pick_a_control_rollout(self._last_counts, old_action)
             if actionflag == "multi-step":
-                action = self._pick_a_control_rollout_four_step(current_state, old_action)
+                action = self._pick_a_control_rollout_four_step(self._last_counts, old_action)
             if actionflag == "greedy":
-                action = self._pick_a_control_greedy(current_state, old_action)
+                action = self._pick_a_control_greedy(self._last_counts, old_action)
             if actionflag == "manual":
                 action = phase_index % 4  # cycles 0 → 1 → 2 → 3 → 0 → ...
                 phase_index += 1
-            # Sliced reward #
-            reward, _ = g_function(current_state, action, old_action, self._gamma)
 
-            # Normal reward #
-            # reward = g_function(current_state, action, old_action, self._gamma)
+            print(f"Step: {self._step} | Action: {action} | Reward: {reward:.2f} | Total wait: {current_total_wait:.0f}s")
 
-            # print("Current step and state and its reward:", self._step, current_state, reward)
-            print(f"Step: {self._step} | Action: {action} | Reward: {reward:.4f} | State: {current_state}")
-            
-            # saving the data into the memory for training
+            # store experience in replay memory (traditional DQN training only)
             if actionflag == "traditional":
                 if self._step != 0:
                     self._Memory.add_sample((old_state, old_action, reward, current_state))
-
-            # You can use these lines to see the difference between real and estimated
-            # if self._step > 215:
-            #     difference = [abs(x1 - x2) for (x1, x2) in zip(current_state, predict_state)]
-            #     similarity = sum(difference) / len(difference) # 12
-            #     similarity_list.append(similarity)
-            #     print("Average prediction error for each lane: ", format(similarity, '.3f'))
-            #     print(similarity_list)
-
-
-            if action == 0:
-                print("action is North and South Green")
-            if action == 1:
-                print("action is North and South Left Green")
-            if action == 2:
-                print("action is East and West Green")
-            if action == 3:
-                print("action is East and West Left Green")
             # if self._step > 200:
             #     predict_state = f_function(self._arrival_rate, current_state, action, old_action)
             #     print("predict state based on f function (Compare with next true state):", predict_state)
@@ -186,16 +157,12 @@ class Simulation:
             else:                  # left-turn phases (NSL, EWL)
                 self._simulate(self._green_duration)
             
-            # saving variables for later & accumulate reward
+            # saving variables for next iteration
             old_state = current_state
             old_action = action
-            
+            old_total_wait = current_total_wait
 
-            # old_total_wait = current_total_wait
-
-            # saving only the meaningful reward to better see if the agent is behaving correctly
-            if reward < 0:
-                self._sum_neg_reward += reward
+            self._sum_neg_reward += reward
 
         
         self._save_episode_stats()
@@ -566,100 +533,59 @@ class Simulation:
 
     def _get_state(self):
         """
-        Retrieve the state of the intersection from sumo, in the form of cell occupancy
+        Retrieve the 24-dim state vector:
+          [0:12]  normalized vehicle counts per lane group (count / 20, clipped to 1)
+          [12:24] normalized cumulative wait times per lane group (total_wait / max_steps, clipped to 1)
+        Raw 12-dim counts are stored in self._last_counts for rollout methods.
         """
-        state = np.zeros(self._num_states) # Occupy matrix - 80; Number of vehicles - 16 or 12
-        car_list = traci.vehicle.getIDList()
-        if self._step >=100:
-            a = self._step % 100
-            self._lane_recorder["N0"][int(a/10)%10] = 0
-            self._lane_recorder["N1&N2"][int(a/10)%10] = 0
-            self._lane_recorder["N3"][int(a/10)%10] = 0
-            self._lane_recorder["S0"][int(a/10)%10] = 0
-            self._lane_recorder["S1&S2"][int(a/10)%10] = 0
-            self._lane_recorder["S3"][int(a/10)%10] = 0
-            self._lane_recorder["E0"][int(a/10)%10] = 0
-            self._lane_recorder["E1&E2"][int(a/10)%10] = 0
-            self._lane_recorder["E3"][int(a/10)%10] = 0
-            self._lane_recorder["W0"][int(a/10)%10] = 0
-            self._lane_recorder["W1&W2"][int(a/10)%10] = 0
-            self._lane_recorder["W3"][int(a/10)%10] = 0
+        # Map each SUMO lane id to a state index (0-11)
+        LANE_INDEX = {
+            "N2TL_0": 0,  "N2TL_1": 1,  "N2TL_2": 1,  "N2TL_3": 2,
+            "S2TL_0": 3,  "S2TL_1": 4,  "S2TL_2": 4,  "S2TL_3": 5,
+            "E2TL_0": 6,  "E2TL_1": 7,  "E2TL_2": 7,  "E2TL_3": 8,
+            "W2TL_0": 9,  "W2TL_1": 10, "W2TL_2": 10, "W2TL_3": 11,
+        }
+        RECORDER_KEY = {
+            "N2TL_0": "N0",    "N2TL_1": "N1&N2", "N2TL_2": "N1&N2", "N2TL_3": "N3",
+            "S2TL_0": "S0",    "S2TL_1": "S1&S2", "S2TL_2": "S1&S2", "S2TL_3": "S3",
+            "E2TL_0": "E0",    "E2TL_1": "E1&E2", "E2TL_2": "E1&E2", "E2TL_3": "E3",
+            "W2TL_0": "W0",    "W2TL_1": "W1&W2", "W2TL_2": "W1&W2", "W2TL_3": "W3",
+        }
+        MAX_CARS = 20.0  # normalisation denominator for counts
 
-        for car_id in car_list:
-            lane_pos = traci.vehicle.getLanePosition(car_id)
-            lane_pos = 750 - lane_pos  # inversion of lane pos, so if the car is close to the traffic light -> lane_pos = 0 --- 750 = max len of a road
-            # print("car_id and lane_pos pair:", car_id, lane_pos)
-            # print(lane_pos)
-            lane_id = traci.vehicle.getLaneID(car_id) # Returns the id of the lane the named vehicle was at within the last step.
+        counts = np.zeros(12)
+        waits  = np.zeros(12)
+
+        # slide the arrival-rate window forward
+        if self._step >= 100:
+            slot = int((self._step % 100) / 10) % 10
+            for key in self._lane_recorder:
+                self._lane_recorder[key][slot] = 0
+
+        for car_id in traci.vehicle.getIDList():
+            lane_id  = traci.vehicle.getLaneID(car_id)
+            if lane_id not in LANE_INDEX:
+                continue
+            idx      = LANE_INDEX[lane_id]
+            lane_pos = 750 - traci.vehicle.getLanePosition(car_id)
+
             if lane_pos <= 200:
-                if lane_id == "N2TL_0":
-                    state[0] += 1
-                elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
-                    state[1] += 1
-                elif lane_id == "N2TL_3":
-                    state[2] += 1
-                elif lane_id == "S2TL_0":
-                    state[3] += 1
-                elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
-                    state[4] += 1
-                elif lane_id == "S2TL_3":
-                    state[5] += 1
-                elif lane_id == "E2TL_0":
-                    state[6] += 1
-                elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
-                    state[7] += 1
-                elif lane_id == "E2TL_3":
-                    state[8] += 1
-                elif lane_id == "W2TL_0":
-                    state[9] += 1
-                elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
-                    state[10] += 1
-                elif lane_id == "W2TL_3":
-                    state[11] += 1
-            if lane_pos >= 636: # value tested from manual setting
-                # Recorder starts to work
-                # Only lane_pos >= 636 will be considered as new vehicle
-                # Even start from 749, after 10s, it will reach 621, which is smaller than 636
-                if lane_id == "N2TL_0":
-                    self._lane_recorder["N0"][int(self._step/10)%10] += 1
-                elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
-                    self._lane_recorder["N1&N2"][int(self._step/10)%10] += 1
-                elif lane_id == "N2TL_3":
-                    self._lane_recorder["N3"][int(self._step/10)%10] += 1
-                elif lane_id == "S2TL_0":
-                    self._lane_recorder["S0"][int(self._step/10)%10] += 1
-                elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
-                    self._lane_recorder["S1&S2"][int(self._step/10)%10] += 1
-                elif lane_id == "S2TL_3":
-                    self._lane_recorder["S3"][int(self._step/10)%10] += 1
-                elif lane_id == "E2TL_0":
-                    self._lane_recorder["E0"][int(self._step/10)%10] += 1
-                elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
-                    self._lane_recorder["E1&E2"][int(self._step/10)%10] += 1
-                elif lane_id == "E2TL_3":
-                    self._lane_recorder["E3"][int(self._step/10)%10] += 1
-                elif lane_id == "W2TL_0":
-                    self._lane_recorder["W0"][int(self._step/10)%10] += 1
-                elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
-                    self._lane_recorder["W1&W2"][int(self._step/10)%10] += 1
-                elif lane_id == "W2TL_3":
-                    self._lane_recorder["W3"][int(self._step/10)%10] += 1
+                counts[idx] += 1
+                waits[idx]  += traci.vehicle.getAccumulatedWaitingTime(car_id)
 
-        if self._step >=100:
-            self._arrival_rate["N0"] = sum(self._lane_recorder["N0"]) / len(self._lane_recorder["N0"])
-            self._arrival_rate["N1&N2"] = sum(self._lane_recorder["N1&N2"]) / len(self._lane_recorder["N1&N2"])
-            self._arrival_rate["N3"] = sum(self._lane_recorder["N3"]) / len(self._lane_recorder["N3"])
-            self._arrival_rate["S0"] = sum(self._lane_recorder["S0"]) / len(self._lane_recorder["S0"])
-            self._arrival_rate["S1&S2"] = sum(self._lane_recorder["S1&S2"]) / len(self._lane_recorder["S1&S2"])
-            self._arrival_rate["S3"] = sum(self._lane_recorder["S3"]) / len(self._lane_recorder["S3"])
-            self._arrival_rate["E0"] = sum(self._lane_recorder["E0"]) / len(self._lane_recorder["E0"])
-            self._arrival_rate["E1&E2"] = sum(self._lane_recorder["E1&E2"]) / len(self._lane_recorder["E1&E2"])
-            self._arrival_rate["E3"] = sum(self._lane_recorder["E3"]) / len(self._lane_recorder["E3"])
-            self._arrival_rate["W0"] = sum(self._lane_recorder["W0"]) / len(self._lane_recorder["W0"])
-            self._arrival_rate["W1&W2"] = sum(self._lane_recorder["W1&W2"]) / len(self._lane_recorder["W1&W2"])
-            self._arrival_rate["W3"] = sum(self._lane_recorder["W3"]) / len(self._lane_recorder["W3"])
+            if lane_pos >= 636:  # new vehicle entering the detection zone
+                self._lane_recorder[RECORDER_KEY[lane_id]][int(self._step / 10) % 10] += 1
 
-        return state
+        if self._step >= 100:
+            for key in self._arrival_rate:
+                self._arrival_rate[key] = sum(self._lane_recorder[key]) / 10.0
+
+        # keep raw counts for rollout methods (g_function / f_function expect 12-dim counts)
+        self._last_counts = counts.copy()
+
+        normalized_counts = np.clip(counts / MAX_CARS,            0.0, 1.0)
+        normalized_waits  = np.clip(waits  / self._max_steps,     0.0, 1.0)
+        return np.concatenate([normalized_counts, normalized_waits])
 
     
 
@@ -685,7 +611,6 @@ class Simulation:
             for i, b in enumerate(batch):
                 state, action, reward, _ = b[0], b[1], b[2], b[3]  # extract data from one sample
                 current_q = q_s_a[i]  # get the Q(state) predicted before
-                print("current_q", current_q)
                 current_q[action] = reward + self._gamma * np.amax(q_s_a_d[i])  # update Q(state, action)
                 x[i] = state
                 y[i] = current_q  # Q(state) that includes the updated action value

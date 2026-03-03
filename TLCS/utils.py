@@ -29,8 +29,8 @@ def import_train_configuration(config_file):
     config['num_actions'] = content['agent'].getint('num_actions')
     config['gamma'] = content['agent'].getfloat('gamma')
     config['models_path_name'] = content['dir']['models_path_name']
+    config['experiment_name'] = content['dir']['experiment_name']
     config['sumocfg_file_name'] = content['dir']['sumocfg_file_name']
-    config['model_to_load'] = content['dir'].getint('model_to_load') 
     return config
 
 
@@ -78,23 +78,25 @@ def set_sumo(gui, sumocfg_file_name, max_steps):
     return sumo_cmd
 
 
-def set_train_path(models_path_name):
+def set_train_path(models_path_name, experiment_name):
     """
-    Create a new model path with an incremental integer, also considering previously created model paths
+    Create a new model path under models_path_name/experiment_name/model_X/
+    with an auto-incrementing integer.
     """
-    models_path = os.path.join(os.getcwd(), models_path_name, '')
+    models_path = os.path.join(os.getcwd(), models_path_name, experiment_name, '')
     os.makedirs(os.path.dirname(models_path), exist_ok=True)
 
-    dir_content = os.listdir(models_path)
-    if dir_content:
-        previous_versions = [int(name.split("_")[1]) for name in dir_content]
+    dir_content = os.listdir(models_path) if os.path.isdir(models_path) else []
+    model_dirs = [name for name in dir_content if name.startswith('model_')]
+    if model_dirs:
+        previous_versions = [int(name.split("_")[1]) for name in model_dirs]
         new_version = str(max(previous_versions) + 1)
     else:
         new_version = '1'
 
     data_path = os.path.join(models_path, 'model_'+new_version, '')
     os.makedirs(os.path.dirname(data_path), exist_ok=True)
-    return data_path 
+    return data_path
 
 
 def set_test_path(models_path_name, model_n):
