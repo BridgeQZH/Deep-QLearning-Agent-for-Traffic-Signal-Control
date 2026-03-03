@@ -16,6 +16,7 @@ def import_train_configuration(config_file):
     config['max_steps'] = content['simulation'].getint('max_steps')
     config['n_cars_generated'] = content['simulation'].getint('n_cars_generated')
     config['green_duration'] = content['simulation'].getint('green_duration')
+    config['green_duration_straight'] = content['simulation'].getint('green_duration_straight')
     config['yellow_duration'] = content['simulation'].getint('yellow_duration')
     config['num_layers'] = content['model'].getint('num_layers')
     config['width_layers'] = content['model'].getint('width_layers')

@@ -25,7 +25,7 @@ PHASE_EWL_YELLOW = 7
 
 
 class Simulation:
-    def __init__(self, Model, Memory, TrafficGen, sumo_cmd, gamma, max_steps, green_duration, yellow_duration, num_states, num_actions, training_epochs):
+    def __init__(self, Model, Memory, TrafficGen, sumo_cmd, gamma, max_steps, green_duration, green_duration_straight, yellow_duration, num_states, num_actions, training_epochs):
         self._Model = Model
         self._Memory = Memory
         self._TrafficGen = TrafficGen
@@ -34,6 +34,7 @@ class Simulation:
         self._sumo_cmd = sumo_cmd
         self._max_steps = max_steps
         self._green_duration = green_duration
+        self._green_duration_straight = green_duration_straight
         self._yellow_duration = yellow_duration
         self._num_states = num_states
         self._num_actions = num_actions
@@ -92,8 +93,9 @@ class Simulation:
         old_total_wait = 0
         old_state = -1
         old_action = -1
-        actionflag = "one-step"
+        actionflag = "manual"
         similarity_list = []
+        phase_index = 0  # counter for fixed-time cycling
         
 
         if actionflag == "traditional":
@@ -131,10 +133,8 @@ class Simulation:
             if actionflag == "greedy":
                 action = self._pick_a_control_greedy(current_state, old_action)
             if actionflag == "manual":
-                if self._step <= 800:
-                    action = 0
-                else:
-                    action = 1
+                action = phase_index % 4  # cycles 0 → 1 → 2 → 3 → 0 → ...
+                phase_index += 1
             # Sliced reward #
             reward, _ = g_function(current_state, action, old_action, self._gamma)
 
@@ -142,7 +142,7 @@ class Simulation:
             # reward = g_function(current_state, action, old_action, self._gamma)
 
             # print("Current step and state and its reward:", self._step, current_state, reward)
-            print("Current step and state:", self._step, current_state)
+            print(f"Step: {self._step} | Action: {action} | Reward: {reward:.4f} | State: {current_state}")
             
             # saving the data into the memory for training
             if actionflag == "traditional":
@@ -181,7 +181,10 @@ class Simulation:
 
             # execute the phase selected before
             self._set_green_phase(action)
-            self._simulate(self._green_duration)
+            if action in (0, 2):  # straight phases (NS, EW) get longer green
+                self._simulate(self._green_duration_straight)
+            else:                  # left-turn phases (NSL, EWL)
+                self._simulate(self._green_duration)
             
             # saving variables for later & accumulate reward
             old_state = current_state

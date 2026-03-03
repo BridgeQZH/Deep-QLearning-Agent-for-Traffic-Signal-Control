@@ -8,9 +8,8 @@ from shutil import copyfile
 from training_simulation import Simulation
 from generator import TrafficGenerator
 from memory import Memory
-from model import TrainModel, TestModel
 from visualization import Visualization
-from utils import import_train_configuration, set_sumo, set_train_path, set_test_path
+from utils import import_train_configuration, set_sumo, set_train_path
 
 
 if __name__ == "__main__":
@@ -20,23 +19,7 @@ if __name__ == "__main__":
     path = set_train_path(config['models_path_name'])
     print("Model saved to:", path)
 
-    model_path, plot_path = set_test_path(config['models_path_name'], config['model_to_load'])
-
-    # Here TestModel means LoadModel
-    Model = TestModel(
-        input_dim=config['num_states'],
-        model_path=model_path
-    )
-
-    # Here uses trainmodel if we use traditional model
-    # Model = TrainModel(
-    #     config['num_layers'], 
-    #     config['width_layers'], 
-    #     config['batch_size'], 
-    #     config['learning_rate'], 
-    #     input_dim=config['num_states'], 
-    #     output_dim=config['num_actions']
-    # )
+    Model = None  # no model needed for fixed-time control
 
     Memory = Memory(
         config['memory_size_max'], 
@@ -61,6 +44,7 @@ if __name__ == "__main__":
         config['gamma'],
         config['max_steps'],
         config['green_duration'],
+        config['green_duration_straight'],
         config['yellow_duration'],
         config['num_states'],
         config['num_actions'],
