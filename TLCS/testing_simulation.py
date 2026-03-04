@@ -1,240 +1,230 @@
 import traci
 import numpy as np
-import random
 import timeit
-import os
-from quadratic_reward_divided import g_function
+
+from f_function_arrival_rate import f_function
+from g_function_linear import g_function
 
 # phase codes based on environment.net.xml
-PHASE_NS_GREEN = 0  # action 0 code 00
+PHASE_NS_GREEN  = 0   # action 0
 PHASE_NS_YELLOW = 1
-PHASE_NSL_GREEN = 2  # action 1 code 01
+PHASE_NSL_GREEN  = 2  # action 1
 PHASE_NSL_YELLOW = 3
-PHASE_EW_GREEN = 4  # action 2 code 10
+PHASE_EW_GREEN  = 4   # action 2
 PHASE_EW_YELLOW = 5
-PHASE_EWL_GREEN = 6  # action 3 code 11
+PHASE_EWL_GREEN  = 6  # action 3
 PHASE_EWL_YELLOW = 7
 
 
 class Simulation:
-    def __init__(self, Model, TrafficGen, sumo_cmd, num_vehicles, max_steps, green_duration, yellow_duration, num_states, num_actions):
+    def __init__(self, Model, TrafficGen, sumo_cmd, gamma, max_steps,
+                 green_duration, green_duration_straight, yellow_duration,
+                 num_states, num_actions, action_mode):
         self._Model = Model
         self._TrafficGen = TrafficGen
-        self._step = 0
         self._sumo_cmd = sumo_cmd
-        self._num_vehicles = num_vehicles
+        self._gamma = gamma
         self._max_steps = max_steps
         self._green_duration = green_duration
+        self._green_duration_straight = green_duration_straight
         self._yellow_duration = yellow_duration
         self._num_states = num_states
         self._num_actions = num_actions
-        self._reward_episode = []
-        self._queue_length_episode = []
-        
+        self._action_mode = action_mode
+        self._cumulative_wait_store = []
+        self._avg_queue_length_store = []
 
 
-    def run(self, episode):
+    def run(self, seed):
         """
-        Runs the testing simulation
+        Run one test episode with the given seed. No training, no exploration.
+        Returns (simulation_time, cumulative_wait, avg_queue_length).
         """
         start_time = timeit.default_timer()
-
-        # first, generate the route file for this simulation and set up sumo
-        self._TrafficGen.generate_routefile(seed=episode) # using seed to reproduce easily in order to compare
+        self._TrafficGen.generate_routefile(seed=seed)
         traci.start(self._sumo_cmd)
-        print("Simulating...")
 
-        # inits
         self._step = 0
         self._waiting_times = {}
-        old_total_wait = 0
-        old_action = -1 # dummy init
+        self._sum_queue_length = 0
+        self._sum_waiting_time = 0
+        self._arrival_rate = {
+            "N0": 0, "N1&N2": 0, "N3": 0,
+            "S0": 0, "S1&S2": 0, "S3": 0,
+            "E0": 0, "E1&E2": 0, "E3": 0,
+            "W0": 0, "W1&W2": 0, "W3": 0,
+        }
+        self._lane_recorder = {k: [0] * 10 for k in self._arrival_rate}
+
+        old_action = -1
+        phase_index = 0
 
         while self._step < self._max_steps:
-            # get current state of the intersection
             current_state = self._get_state()
-            
-            # calculate reward of previous action: (change in cumulative waiting time between actions)
-            # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
-            current_total_wait = self._collect_waiting_times()
-            # reward = (old_total_wait - current_total_wait) # TODO: consider the comparison
+            self._collect_waiting_times()
 
-            # choose the light phase to activate, based on the current state of the intersection
-            action = self._choose_action(current_state)
+            if self._action_mode == "traditional":
+                action = self._choose_action(current_state)
+            elif self._action_mode == "one-step":
+                action = self._pick_a_control_rollout(self._last_counts, old_action)
+            elif self._action_mode == "greedy":
+                action = self._pick_a_control_greedy(self._last_counts, old_action)
+            elif self._action_mode == "manual":
+                action = phase_index % 4
+                phase_index += 1
+            else:
+                raise ValueError(f"Unknown action_mode: {self._action_mode}")
 
-            reward, _ = g_function(current_state, action, old_action, 0.98)
-            print("step:",  self._step, "reward:", reward)
-            if action == 0:
-                print("action is North and South Green")
-            if action == 1:
-                print("action is North and South Left Green")
-            if action == 2:
-                print("action is East and West Green")
-            if action == 3:
-                print("action is East and West Left Green")
-            # if the chosen phase is different from the last phase, activate the yellow phase
             if self._step != 0 and old_action != action:
                 self._set_yellow_phase(old_action)
                 self._simulate(self._yellow_duration)
 
-            # execute the phase selected before
             self._set_green_phase(action)
-            self._simulate(self._green_duration)
+            if action in (0, 2):
+                self._simulate(self._green_duration_straight)
+            else:
+                self._simulate(self._green_duration)
 
-            # saving variables for later & accumulate reward
             old_action = action
-            old_total_wait = current_total_wait
 
-            self._reward_episode.append(reward)
-            print("step:", self._step, "current step reward:", reward)
+        self._cumulative_wait_store.append(self._sum_waiting_time)
+        self._avg_queue_length_store.append(self._sum_queue_length / self._step)
 
-        print("Total reward:", np.sum(self._reward_episode)) # A very small number
         traci.close()
-        simulation_time = round(timeit.default_timer() - start_time, 1)
-
-        return simulation_time
+        sim_time = round(timeit.default_timer() - start_time, 1)
+        return sim_time, self._sum_waiting_time, self._sum_queue_length / self._step
 
 
     def _simulate(self, steps_todo):
-        """
-        Proceed with the simulation in sumo
-        """
-        if (self._step + steps_todo) >= self._max_steps:  # do not do more steps than the maximum allowed number of steps
+        if (self._step + steps_todo) >= self._max_steps:
             steps_todo = self._max_steps - self._step
-
         while steps_todo > 0:
-            traci.simulationStep()  # simulate 1 step in sumo
-            self._step += 1 # update the step counter
+            traci.simulationStep()
+            self._step += 1
             steps_todo -= 1
             queue_length = self._get_queue_length()
-            self._queue_length_episode.append(queue_length)
+            self._sum_queue_length += queue_length
+            self._sum_waiting_time += queue_length
 
 
     def _collect_waiting_times(self):
-        """
-        Retrieve the waiting time of every car in the incoming roads
-        """
         incoming_roads = ["E2TL", "N2TL", "W2TL", "S2TL"]
-        car_list = traci.vehicle.getIDList()
-        for car_id in car_list:
+        for car_id in traci.vehicle.getIDList():
             wait_time = traci.vehicle.getAccumulatedWaitingTime(car_id)
-            road_id = traci.vehicle.getRoadID(car_id)  # get the road id where the car is located
-            if road_id in incoming_roads:  # consider only the waiting times of cars in incoming roads
+            road_id = traci.vehicle.getRoadID(car_id)
+            if road_id in incoming_roads:
                 self._waiting_times[car_id] = wait_time
             else:
-                if car_id in self._waiting_times: # a car that was tracked has cleared the intersection
-                    del self._waiting_times[car_id] 
-        total_waiting_time = sum(self._waiting_times.values())
-        return total_waiting_time
+                if car_id in self._waiting_times:
+                    del self._waiting_times[car_id]
 
 
     def _choose_action(self, state):
-        """
-        Pick the best action known based on the current state of the env
-        model.predict returns numpy array(s) of predictions
-        """
-        # print("Max among four Q", np.max(self._Model.predict_one(state)))
-        # print("Full four Q", self._Model.predict_one(state))
+        """DQN greedy: argmax Q(state)."""
         return np.argmax(self._Model.predict_one(state))
 
 
+    def _pick_a_control_rollout(self, current_state, old_action):
+        """One-step lookahead: Q̃(u) = g(xₖ, u) + γ^T · max_a Q(f(xₖ,u), a).
+        f_function returns 12-dim raw counts; DQN expects 24-dim normalized state.
+        Normalize the predicted counts and pad zeros for the wait-time half.
+        """
+        if self._step == 0:
+            return 0
+        if old_action == -1:
+            old_action = 2
+
+        scores = []
+        for action in range(4):
+            g_val, past_time = g_function(current_state, action, old_action, self._gamma)
+            next_counts = f_function(self._arrival_rate, current_state, action, old_action)
+            # Convert 12-dim raw counts → 24-dim normalized state for DQN
+            next_counts_norm = np.clip(next_counts / 20.0, 0.0, 1.0)
+            next_state_for_dqn = np.concatenate([next_counts_norm, np.zeros(12)])
+            q_next = self._Model.predict_one(next_state_for_dqn)
+            q_tilde = g_val + self._gamma ** past_time * np.amax(q_next)
+            scores.append(q_tilde)
+        return int(np.argmax(scores))
+
+
+    def _pick_a_control_greedy(self, current_state, old_action):
+        """Pure greedy: argmax g(xₖ, u) — no DQN tail."""
+        if self._step == 0:
+            return 0
+        if old_action == -1:
+            old_action = 2
+        scores = [g_function(current_state, u, old_action, self._gamma)[0] for u in range(4)]
+        return int(np.argmax(scores))
+
+
     def _set_yellow_phase(self, old_action):
-        """
-        Activate the correct yellow light combination in sumo
-        """
-        yellow_phase_code = old_action * 2 + 1 # obtain the yellow phase code, based on the old action (ref on environment.net.xml)
-        traci.trafficlight.setPhase("TL", yellow_phase_code)
+        traci.trafficlight.setPhase("TL", old_action * 2 + 1)
 
 
-    def _set_green_phase(self, action_number):
-        """
-        Activate the correct green light combination in sumo
-        """
-        if action_number == 0:
-            traci.trafficlight.setPhase("TL", PHASE_NS_GREEN)
-        elif action_number == 1:
-            traci.trafficlight.setPhase("TL", PHASE_NSL_GREEN)
-        elif action_number == 2:
-            traci.trafficlight.setPhase("TL", PHASE_EW_GREEN)
-        elif action_number == 3:
-            traci.trafficlight.setPhase("TL", PHASE_EWL_GREEN)
+    def _set_green_phase(self, action):
+        phase_map = {0: PHASE_NS_GREEN, 1: PHASE_NSL_GREEN,
+                     2: PHASE_EW_GREEN, 3: PHASE_EWL_GREEN}
+        traci.trafficlight.setPhase("TL", phase_map[action])
 
 
     def _get_queue_length(self):
-        """
-        Retrieve the number of cars with speed = 0 in every incoming lane
-        """
-        halt_N = traci.edge.getLastStepHaltingNumber("N2TL")
-        halt_S = traci.edge.getLastStepHaltingNumber("S2TL")
-        halt_E = traci.edge.getLastStepHaltingNumber("E2TL")
-        halt_W = traci.edge.getLastStepHaltingNumber("W2TL")
-        queue_length = halt_N + halt_S + halt_E + halt_W
-        return queue_length
+        return (traci.edge.getLastStepHaltingNumber("N2TL") +
+                traci.edge.getLastStepHaltingNumber("S2TL") +
+                traci.edge.getLastStepHaltingNumber("E2TL") +
+                traci.edge.getLastStepHaltingNumber("W2TL"))
 
 
     def _get_state(self):
-        """
-        Retrieve the state of the intersection from sumo, in the form of cell occupancy
-        """
-        state = np.zeros(self._num_states) # Occupy matrix - 80; Number of vehicles - 16 or 12
-        car_list = traci.vehicle.getIDList()
+        """24-dim state: [normalized counts x12 | normalized wait times x12]."""
+        LANE_INDEX = {
+            "N2TL_0": 0,  "N2TL_1": 1,  "N2TL_2": 1,  "N2TL_3": 2,
+            "S2TL_0": 3,  "S2TL_1": 4,  "S2TL_2": 4,  "S2TL_3": 5,
+            "E2TL_0": 6,  "E2TL_1": 7,  "E2TL_2": 7,  "E2TL_3": 8,
+            "W2TL_0": 9,  "W2TL_1": 10, "W2TL_2": 10, "W2TL_3": 11,
+        }
+        RECORDER_KEY = {
+            "N2TL_0": "N0",    "N2TL_1": "N1&N2", "N2TL_2": "N1&N2", "N2TL_3": "N3",
+            "S2TL_0": "S0",    "S2TL_1": "S1&S2", "S2TL_2": "S1&S2", "S2TL_3": "S3",
+            "E2TL_0": "E0",    "E2TL_1": "E1&E2", "E2TL_2": "E1&E2", "E2TL_3": "E3",
+            "W2TL_0": "W0",    "W2TL_1": "W1&W2", "W2TL_2": "W1&W2", "W2TL_3": "W3",
+        }
+        MAX_CARS = 20.0
 
-        for car_id in car_list:
-            lane_pos = traci.vehicle.getLanePosition(car_id)
-            lane_pos = 750 - lane_pos  # inversion of lane pos, so if the car is close to the traffic light -> lane_pos = 0 --- 750 = max len of a road
-            lane_id = traci.vehicle.getLaneID(car_id) # Returns the id of the lane the named vehicle was at within the last step.
-            if lane_pos <= 100:
-                if lane_id == "N2TL_0":
-                    state[0] += 1
-                    
-                elif lane_id == "N2TL_1" or lane_id == "N2TL_2":
-                    state[1] += 1
-                    
-                elif lane_id == "N2TL_3":
-                    state[2] += 1
-                    
-                elif lane_id == "S2TL_0":
-                    state[3] += 1
-                    
-                elif lane_id == "S2TL_1" or lane_id == "S2TL_2":
-                    state[4] += 1
-                    
-                elif lane_id == "S2TL_3":
-                    state[5] += 1
-                    
-                elif lane_id == "E2TL_0":
-                    state[6] += 1
-                    
-                elif lane_id == "E2TL_1" or lane_id == "E2TL_2":
-                    state[7] += 1
-                    
-                elif lane_id == "E2TL_3":
-                    state[8] += 1
-                    
-                elif lane_id == "W2TL_0":
-                    state[9] += 1
-                    
-                elif lane_id == "W2TL_1" or lane_id == "W2TL_2":
-                    state[10] += 1
-                    
-                elif lane_id == "W2TL_3":
-                    state[11] += 1
+        counts = np.zeros(12)
+        waits  = np.zeros(12)
 
-        return state
+        if self._step >= 100:
+            slot = int((self._step % 100) / 10) % 10
+            for key in self._lane_recorder:
+                self._lane_recorder[key][slot] = 0
+
+        for car_id in traci.vehicle.getIDList():
+            lane_id  = traci.vehicle.getLaneID(car_id)
+            if lane_id not in LANE_INDEX:
+                continue
+            idx      = LANE_INDEX[lane_id]
+            lane_pos = 750 - traci.vehicle.getLanePosition(car_id)
+            if lane_pos <= 200:
+                counts[idx] += 1
+                waits[idx]  += traci.vehicle.getAccumulatedWaitingTime(car_id)
+            if lane_pos >= 636:
+                self._lane_recorder[RECORDER_KEY[lane_id]][int(self._step / 10) % 10] += 1
+
+        if self._step >= 100:
+            for key in self._arrival_rate:
+                self._arrival_rate[key] = sum(self._lane_recorder[key]) / 10.0
+
+        self._last_counts = counts.copy()
+
+        normalized_counts = np.clip(counts / MAX_CARS,         0.0, 1.0)
+        normalized_waits  = np.clip(waits  / self._max_steps,  0.0, 1.0)
+        return np.concatenate([normalized_counts, normalized_waits])
 
 
     @property
-    def queue_length_episode(self):
-        return self._queue_length_episode
-
+    def cumulative_wait_store(self):
+        return self._cumulative_wait_store
 
     @property
-    def reward_episode(self):
-        accu_reward = []
-        for i in range(len(self._reward_episode)):
-            b1 = sum(self._reward_episode[0:i+1])
-            accu_reward.append(b1)
-        return accu_reward
-
-
-
+    def avg_queue_length_store(self):
+        return self._avg_queue_length_store

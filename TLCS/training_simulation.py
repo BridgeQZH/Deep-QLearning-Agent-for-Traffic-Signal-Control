@@ -6,8 +6,8 @@ import random
 import timeit
 import os
 from f_function_arrival_rate import f_function
-from quadratic_reward_divided import g_function
-# from quadratic_reward import g_function
+from g_function_linear import g_function
+# from quadratic_reward_divided import g_function
 from quadratic_reward_last_term import g_function_last_term
 # from prolong import prolong
 # from H_function import H_function
@@ -53,7 +53,6 @@ class Simulation:
         # first, generate the route file for this simulation and set up sumo
         self._TrafficGen.generate_routefile(seed=episode)
         traci.start(self._sumo_cmd)
-        print("Simulating...")
 
         # inits
         self._step = 0
@@ -98,16 +97,13 @@ class Simulation:
         phase_index = 0  # counter for fixed-time cycling
         
 
-        if actionflag == "traditional":
-            print("You are using the traditional pick action method without rollout")
-        if actionflag == "one-step":
-            print("You are using the one-step lookahead pick action method with rollout")
-        if actionflag == "multi-step":
-            print("You are using the multi-step lookahead pick action method with rollout")
-        if actionflag == "manual":
-            print("The action is set manually")
-        if actionflag == "greedy":
-            print("You are using the greedy pick action method without rollout")
+        mode_labels = {
+            "traditional": "DQN",
+            "one-step": "Rollout-1step",
+            "multi-step": "Rollout-4step",
+            "greedy": "Greedy",
+            "manual": "Fixed-time",
+        }
         while self._step < self._max_steps:
 
             # get current state (24-dim: normalized counts + normalized wait times)
@@ -131,7 +127,6 @@ class Simulation:
                 action = phase_index % 4  # cycles 0 → 1 → 2 → 3 → 0 → ...
                 phase_index += 1
 
-            print(f"Step: {self._step} | Action: {action} | Reward: {reward:.2f} | Total wait: {current_total_wait:.0f}s")
 
             # store experience in replay memory (traditional DQN training only)
             if actionflag == "traditional":
@@ -166,22 +161,9 @@ class Simulation:
 
         
         self._save_episode_stats()
-        print("Total reward:", self._sum_neg_reward, "- Epsilon:", round(epsilon, 2))
-        # x1=list(range(0,len(similarity_list)))
-        # y1=similarity_list
-        
-        # plt.plot(x1,y1,'ro-')
-        # plt.title('The average prediction error for each lane')
-        # plt.xlabel('step')
-        # plt.ylabel('difference')
-        # plt.legend()
-        # plt.show()
-
-        
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
 
-        print("Training...")
         start_time = timeit.default_timer()
         if actionflag == "traditional":
             for _ in range(self._training_epochs):
@@ -265,37 +247,28 @@ class Simulation:
         g3, past_time3 = g_function(current_state, action3, old_action, self._gamma)
         g4, past_time4 = g_function(current_state, action4, old_action, self._gamma)
         
+        # f_function returns 12-dim raw counts; DQN expects 24-dim normalized state.
+        # Normalize predicted counts and pad zeros for the wait-time half.
+        def _to_dqn_state(counts):
+            return np.concatenate([np.clip(counts / 20.0, 0.0, 1.0), np.zeros(12)])
+
         next_state_1 = f_function(self._arrival_rate, current_state, action1, old_action)
-        print("If NS green, next_state:", next_state_1)
-        q_s_a_d1 = self._Model.predict_one(next_state_1)
+        q_s_a_d1 = self._Model.predict_one(_to_dqn_state(next_state_1))
         H1 = np.amax(q_s_a_d1)
-        # u1 = self._pick_a_control_greedy(next_state_1, action1)
-        # H1 = g_function_last_term(next_state_1, u1, action1, self._gamma, truncated_point,\
-        #      past_time1)
         q_tilde1 = g1 + self._gamma ** past_time1 * H1 # x_k, u_1 evaluation
-        
+
         next_state_2 = f_function(self._arrival_rate, current_state, action2, old_action)
-        print("If NS left green, next_state:", next_state_2)
-        q_s_a_d2 = self._Model.predict_one(next_state_2)
-        H2 = np.amax(q_s_a_d2) 
-        # u2 = self._pick_a_control_greedy(next_state_2, action2)
-        # H2 = g_function_last_term(next_state_2, u2, action2, self._gamma, truncated_point,\
-        #      past_time2)
+        q_s_a_d2 = self._Model.predict_one(_to_dqn_state(next_state_2))
+        H2 = np.amax(q_s_a_d2)
         q_tilde2 = g2 + self._gamma ** past_time2 * H2 # x_k, u_2 evaluation
-        
 
         next_state_3 = f_function(self._arrival_rate, current_state, action3, old_action)
-        print("If EW green, next_state:", next_state_3)
-        q_s_a_d3 = self._Model.predict_one(next_state_3)
-        H3 = np.amax(q_s_a_d3) 
-        # u3 = self._pick_a_control_greedy(next_state_3, action3)
-        # H3 = g_function_last_term(next_state_3, u3, action3, self._gamma, truncated_point,\
-        #      past_time3)
+        q_s_a_d3 = self._Model.predict_one(_to_dqn_state(next_state_3))
+        H3 = np.amax(q_s_a_d3)
         q_tilde3 = g3 + self._gamma ** past_time3 * H3 # x_k, u_3 evaluation
-        
+
         next_state_4 = f_function(self._arrival_rate, current_state, action4, old_action)
-        print("If NS left green, next_state:", next_state_4)
-        q_s_a_d4 = self._Model.predict_one(next_state_4)
+        q_s_a_d4 = self._Model.predict_one(_to_dqn_state(next_state_4))
         H4 = np.amax(q_s_a_d4)        
         # u4 = self._pick_a_control_greedy(next_state_4, action4)
         # H4 = g_function_last_term(next_state_4, u4, action4, self._gamma, truncated_point,\
@@ -321,16 +294,15 @@ class Simulation:
         #     return 1
         # elif current_state[8]>=20 or current_state[11]>=20:
         #     return 3
-        print("old_action", old_action)
         if old_action == -1:
             old_action = 2
         a_list = []
-        
+
         action1 = 0
         action2 = 1
         action3 = 2
         action4 = 3
-        
+
         g1 = g_function(current_state, action1, old_action, self._gamma)
         g2 = g_function(current_state, action2, old_action, self._gamma)
         g3 = g_function(current_state, action3, old_action, self._gamma)
@@ -380,7 +352,6 @@ class Simulation:
 
         g14, past_time4 = g_function(x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat, self._gamma)
         x_k_plus_4_1 = f_function(self._arrival_rate, x_k_plus_3_1, u_k_plus_3_1_hat, u_k_plus_2_1_hat) # x_{k+4}^1
-        print("If current NS green, four steps later, the state will be:", x_k_plus_4_1)
 
         # q_hat_1 = self._Model.predict_one(x_k_plus_4_1)
         # H1 = np.amax(q_hat_1)

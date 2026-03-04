@@ -4,66 +4,62 @@ from __future__ import print_function
 import os
 from shutil import copyfile
 
-# from testing_simulation_fixed import Simulation # To see how the normal way affect the result
 from testing_simulation import Simulation
 from generator import TrafficGenerator
 from model import TestModel
-from visualization import Visualization
 from utils import import_test_configuration, set_sumo, set_test_path
-
-# TODO: 1. Add testing env stochasity in to heterogeneous
-# TODO: Provide NN hyperparameters choosing argument, when it cannot produce good enough results; Even though, having some arguments
-# TODO: 2. New state representation ; New NN architecture. Solid step to push Rollout; System equation rather than transition probablity.
-# Vector -> New Vector may be high dimension
-# Compact state  - + 
-# System equation easier, sampling time & duration time
-
-
 
 
 if __name__ == "__main__":
 
     config = import_test_configuration(config_file='testing_settings.ini')
     sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
-    model_path, plot_path = set_test_path(config['models_path_name'], config['model_to_test'])
+    model_path, plot_path = set_test_path(
+        config['models_path_name'], config['experiment_name'], config['model_to_test']
+    )
 
     Model = TestModel(
         input_dim=config['num_states'],
         model_path=model_path
     )
-    
+
     TrafficGen = TrafficGenerator(
-        config['max_steps'], 
+        config['max_steps'],
         config['n_cars_generated']
     )
 
-    Visualization = Visualization(
-        plot_path, 
-        dpi=96
-    )
-        
-    Simulation = Simulation(
+    Sim = Simulation(
         Model,
         TrafficGen,
         sumo_cmd,
-        config['n_cars_generated'],
+        config['gamma'],
         config['max_steps'],
         config['green_duration'],
+        config['green_duration_straight'],
         config['yellow_duration'],
         config['num_states'],
-        config['num_actions']
+        config['num_actions'],
+        config['action_mode']
     )
 
-    print('\n----- Test episode -----')
-    simulation_time = Simulation.run(config['episode_seed'])  # run the simulation
-    print('Simulation time:', simulation_time, 's')
-    
+    mode = config['action_mode']
+    n_episodes = config['num_episodes']
+    seed_start = config['episode_seed_start']
 
-    print("----- Testing info saved at:", plot_path)
+    print(f"\n===== Testing: mode={mode}  episodes={n_episodes}  seeds={seed_start}..{seed_start+n_episodes-1} =====")
+    print(f"Model: {model_path}")
+    print(f"{'Ep':>3}  {'Seed':>6}  {'CumWait(s)':>12}  {'AvgQueue':>10}  {'SimTime':>8}")
+    print("-" * 50)
 
-    copyfile(src='testing_settings.ini', dst=os.path.join(plot_path, 'testing_settings.ini')) # source, destination
+    for ep in range(n_episodes):
+        seed = seed_start + ep
+        sim_time, cum_wait, avg_queue = Sim.run(seed)
+        print(f"{ep+1:3d}  {seed:6d}  {cum_wait:12.0f}  {avg_queue:10.2f}  {sim_time:7.1f}s")
 
-    Visualization.save_data_and_plot(data=Simulation.reward_episode, filename='reward', xlabel='Action step', ylabel='Reward')
-    Visualization.save_data_and_plot(data=Simulation.queue_length_episode, filename='queue', xlabel='Step', ylabel='Queue length (vehicles)')
-    print("average queue length", sum(Simulation.queue_length_episode)/len(Simulation.queue_length_episode)) 
-    
+    print("-" * 50)
+    avg_cum_wait  = sum(Sim.cumulative_wait_store) / n_episodes
+    avg_avg_queue = sum(Sim.avg_queue_length_store) / n_episodes
+    print(f"{'AVG':>3}  {'':>6}  {avg_cum_wait:12.0f}  {avg_avg_queue:10.2f}")
+    print(f"\nResults saved to: {plot_path}")
+
+    copyfile(src='testing_settings.ini', dst=os.path.join(plot_path, 'testing_settings.ini'))

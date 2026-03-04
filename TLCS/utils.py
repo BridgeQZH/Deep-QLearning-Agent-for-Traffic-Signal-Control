@@ -44,14 +44,19 @@ def import_test_configuration(config_file):
     config['gui'] = content['simulation'].getboolean('gui')
     config['max_steps'] = content['simulation'].getint('max_steps')
     config['n_cars_generated'] = content['simulation'].getint('n_cars_generated')
-    config['episode_seed'] = content['simulation'].getint('episode_seed')
     config['green_duration'] = content['simulation'].getint('green_duration')
+    config['green_duration_straight'] = content['simulation'].getint('green_duration_straight')
     config['yellow_duration'] = content['simulation'].getint('yellow_duration')
+    config['num_episodes'] = content['simulation'].getint('num_episodes')
+    config['episode_seed_start'] = content['simulation'].getint('episode_seed_start')
     config['num_states'] = content['agent'].getint('num_states')
     config['num_actions'] = content['agent'].getint('num_actions')
+    config['gamma'] = content['agent'].getfloat('gamma')
+    config['action_mode'] = content['agent']['action_mode']
     config['sumocfg_file_name'] = content['dir']['sumocfg_file_name']
     config['models_path_name'] = content['dir']['models_path_name']
-    config['model_to_test'] = content['dir'].getint('model_to_test') 
+    config['experiment_name'] = content['dir']['experiment_name']
+    config['model_to_test'] = content['dir'].getint('model_to_test')
     return config
 
 
@@ -99,15 +104,16 @@ def set_train_path(models_path_name, experiment_name):
     return data_path
 
 
-def set_test_path(models_path_name, model_n):
+def set_test_path(models_path_name, experiment_name, model_n):
     """
-    Returns a model path that identifies the model number provided as argument and a newly created 'test' path
+    Returns the path to the trained model and a newly created 'test' subfolder for plots.
+    Path structure: models_path_name/experiment_name/model_N/
     """
-    model_folder_path = os.path.join(os.getcwd(), models_path_name, 'model_'+str(model_n), '')
+    model_folder_path = os.path.join(os.getcwd(), models_path_name, experiment_name, 'model_'+str(model_n), '')
 
-    if os.path.isdir(model_folder_path):    
+    if os.path.isdir(model_folder_path):
         plot_path = os.path.join(model_folder_path, 'test', '')
         os.makedirs(os.path.dirname(plot_path), exist_ok=True)
         return model_folder_path, plot_path
-    else: 
+    else:
         sys.exit('The model number specified does not exist in the models folder')

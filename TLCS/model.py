@@ -41,13 +41,13 @@ class TrainModel:
         Predict the action values from a single state
         """
         state = np.reshape(state, [1, self._input_dim])
-        return self._model.predict(state)
+        return self._model.predict(state, verbose=0)
 
     def predict_batch(self, states):
         """
         Predict the action values from a batch of states
         """
-        return self._model.predict(states)
+        return self._model.predict(states, verbose=0)
 
 
     def train_batch(self, states, q_sa):
@@ -105,7 +105,7 @@ class TestModel:
         Predict the action values from a single state
         """
         state = np.reshape(state, [1, self._input_dim])
-        return self._model.predict(state)
+        return self._model.predict(state, verbose=0)
 
     @property
     def input_dim(self):

@@ -63,10 +63,10 @@ if __name__ == "__main__":
     timestamp_start = datetime.datetime.now()
     
     while episode < config['total_episodes']:
-        print('\n----- Episode', str(episode+1), 'of', str(config['total_episodes']))
-        epsilon = 1.0 - (episode / config['total_episodes'])  # set the epsilon for this episode according to epsilon-greedy policy
-        simulation_time, training_time = Simulation.run(episode, epsilon)  # run the simulation
-        print('Simulation time:', simulation_time, 's - Training time:', training_time, 's - Total:', round(simulation_time + training_time, 1), 's')
+        epsilon = 1.0 - (episode / config['total_episodes'])
+        simulation_time, training_time = Simulation.run(episode, epsilon)
+        reward = Simulation.reward_store[-1]
+        print(f"Ep {episode+1:3d}/{config['total_episodes']} | eps={epsilon:.2f} | reward={reward:8.1f} | sim={simulation_time}s train={training_time}s")
         episode += 1
 
     print("\n----- Start time:", timestamp_start)
