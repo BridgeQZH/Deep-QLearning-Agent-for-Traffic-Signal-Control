@@ -137,7 +137,7 @@ class Simulation:
         scores = []
         for action in range(4):
             g_val, past_time = g_function(current_state, action, old_action, self._gamma)
-            next_counts = f_function(self._arrival_rate, current_state, action, old_action)
+            next_counts = f_function(self._arrival_rate, current_state, action, old_action, self._green_duration, self._green_duration_straight, self._yellow_duration)
             # Convert 12-dim raw counts → 24-dim normalized state for DQN
             next_counts_norm = np.clip(next_counts / 20.0, 0.0, 1.0)
             next_state_for_dqn = np.concatenate([next_counts_norm, np.zeros(12)])
