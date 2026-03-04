@@ -3,7 +3,7 @@ import numpy as np
 import timeit
 
 from f_function_arrival_rate import f_function
-from g_function_linear import g_function
+from quadratic_reward_divided import g_function
 
 # phase codes based on environment.net.xml
 PHASE_NS_GREEN  = 0   # action 0
@@ -138,9 +138,12 @@ class Simulation:
         for action in range(4):
             g_val, past_time = g_function(current_state, action, old_action, self._gamma)
             next_counts = f_function(self._arrival_rate, current_state, action, old_action, self._green_duration, self._green_duration_straight, self._yellow_duration)
-            # Convert 12-dim raw counts → 24-dim normalized state for DQN
             next_counts_norm = np.clip(next_counts / 20.0, 0.0, 1.0)
-            next_state_for_dqn = np.concatenate([next_counts_norm, np.zeros(12)])
+            if self._num_states == 12:
+                next_state_for_dqn = next_counts_norm
+            else:
+                current_waits_norm = np.clip(self._last_waits / self._max_steps, 0.0, 1.0)
+                next_state_for_dqn = np.concatenate([next_counts_norm, current_waits_norm])
             q_next = self._Model.predict_one(next_state_for_dqn)
             q_tilde = g_val + self._gamma ** past_time * np.amax(q_next)
             scores.append(q_tilde)
@@ -215,8 +218,11 @@ class Simulation:
                 self._arrival_rate[key] = sum(self._lane_recorder[key]) / 10.0
 
         self._last_counts = counts.copy()
+        self._last_waits  = waits.copy()
 
         normalized_counts = np.clip(counts / MAX_CARS,         0.0, 1.0)
+        if self._num_states == 12:
+            return normalized_counts
         normalized_waits  = np.clip(waits  / self._max_steps,  0.0, 1.0)
         return np.concatenate([normalized_counts, normalized_waits])
 

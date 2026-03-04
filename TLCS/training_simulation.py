@@ -248,9 +248,10 @@ class Simulation:
         g4, past_time4 = g_function(current_state, action4, old_action, self._gamma)
         
         # f_function returns 12-dim raw counts; DQN expects 24-dim normalized state.
-        # Normalize predicted counts and pad zeros for the wait-time half.
+        # Use current waits as proxy for next-state waits (better than zeros).
+        _cur_waits_norm = np.clip(self._last_waits / self._max_steps, 0.0, 1.0)
         def _to_dqn_state(counts):
-            return np.concatenate([np.clip(counts / 20.0, 0.0, 1.0), np.zeros(12)])
+            return np.concatenate([np.clip(counts / 20.0, 0.0, 1.0), _cur_waits_norm])
 
         next_state_1 = f_function(self._arrival_rate, current_state, action1, old_action, self._green_duration, self._green_duration_straight, self._yellow_duration)
         q_s_a_d1 = self._Model.predict_one(_to_dqn_state(next_state_1))
@@ -551,8 +552,9 @@ class Simulation:
             for key in self._arrival_rate:
                 self._arrival_rate[key] = sum(self._lane_recorder[key]) / 10.0
 
-        # keep raw counts for rollout methods (g_function / f_function expect 12-dim counts)
+        # keep raw counts and waits for rollout methods
         self._last_counts = counts.copy()
+        self._last_waits  = waits.copy()
 
         normalized_counts = np.clip(counts / MAX_CARS,            0.0, 1.0)
         normalized_waits  = np.clip(waits  / self._max_steps,     0.0, 1.0)
