@@ -35,7 +35,6 @@ if __name__ == "__main__":
         config['gamma'],
         config['max_steps'],
         config['green_duration'],
-        config['green_duration_straight'],
         config['yellow_duration'],
         config['num_states'],
         config['num_actions'],

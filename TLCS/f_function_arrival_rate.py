@@ -2,23 +2,22 @@ import numpy as np
 
 BASE = 10          # arrival_rate is measured in vehicles per BASE simulation steps
 
-def f_function(arrival_rate, x_k, u_k, u_k_minus_1, green_duration, green_duration_straight, yellow_duration):
+def f_function(arrival_rate, x_k, u_k, u_k_minus_1, green_duration, yellow_duration):
     """
     Analytical state transition model.
     x = [N0, N1&N2, N3, S0, S1&S2, S3, E0, E1&E2, E3, W0, W1&W2, W3]
          0    1     2   3   4      5   6   7      8   9   10     11
 
     arrival_rate: dict, vehicles per BASE=10 simulation steps per lane group.
-    past_time and decrease_number scale with the actual phase duration.
+    All phases use the same green_duration (symmetric).
 
     Actions: 0=NS-straight, 1=NS-left, 2=EW-straight, 3=EW-left
     """
     x_k_plus_1 = x_k.copy()
 
-    # green duration for the current action
-    green_t = green_duration_straight if u_k in (0, 2) else green_duration
     # total elapsed time includes yellow if phase changed
-    total_t = green_t + (yellow_duration if u_k != u_k_minus_1 else 0)
+    total_t = green_duration + (yellow_duration if u_k != u_k_minus_1 else 0)
+    green_t = green_duration
 
     past_time       = total_t / BASE          # arrivals scale with total elapsed time
     decrease_number = 4 * green_t / BASE      # discharge scales with green time only

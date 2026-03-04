@@ -18,7 +18,7 @@ PHASE_EWL_YELLOW = 7
 
 class Simulation:
     def __init__(self, Model, TrafficGen, sumo_cmd, gamma, max_steps,
-                 green_duration, green_duration_straight, yellow_duration,
+                 green_duration, yellow_duration,
                  num_states, num_actions, action_mode):
         self._Model = Model
         self._TrafficGen = TrafficGen
@@ -26,7 +26,6 @@ class Simulation:
         self._gamma = gamma
         self._max_steps = max_steps
         self._green_duration = green_duration
-        self._green_duration_straight = green_duration_straight
         self._yellow_duration = yellow_duration
         self._num_states = num_states
         self._num_actions = num_actions
@@ -80,10 +79,7 @@ class Simulation:
                 self._simulate(self._yellow_duration)
 
             self._set_green_phase(action)
-            if action in (0, 2):
-                self._simulate(self._green_duration_straight)
-            else:
-                self._simulate(self._green_duration)
+            self._simulate(self._green_duration)
 
             old_action = action
 
@@ -137,7 +133,7 @@ class Simulation:
         scores = []
         for action in range(4):
             g_val, past_time = g_function(current_state, action, old_action, self._gamma)
-            next_counts = f_function(self._arrival_rate, current_state, action, old_action, self._green_duration, self._green_duration_straight, self._yellow_duration)
+            next_counts = f_function(self._arrival_rate, current_state, action, old_action, self._green_duration, self._yellow_duration)
             next_counts_norm = np.clip(next_counts / 20.0, 0.0, 1.0)
             if self._num_states == 12:
                 next_state_for_dqn = next_counts_norm
