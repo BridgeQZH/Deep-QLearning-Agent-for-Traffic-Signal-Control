@@ -248,10 +248,8 @@ class Simulation:
         g4, past_time4 = g_function(current_state, action4, old_action, self._gamma)
         
         # f_function returns 12-dim raw counts; DQN expects 24-dim normalized state.
-        # Use current waits as proxy for next-state waits (better than zeros).
-        _cur_waits_norm = np.clip(self._last_waits / self._max_steps, 0.0, 1.0)
         def _to_dqn_state(counts):
-            return np.concatenate([np.clip(counts / 20.0, 0.0, 1.0), _cur_waits_norm])
+            return np.concatenate([np.clip(counts / 20.0, 0.0, 1.0), np.zeros(12)])
 
         next_state_1 = f_function(self._arrival_rate, current_state, action1, old_action, self._green_duration, self._green_duration_straight, self._yellow_duration)
         q_s_a_d1 = self._Model.predict_one(_to_dqn_state(next_state_1))

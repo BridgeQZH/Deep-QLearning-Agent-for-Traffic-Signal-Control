@@ -127,7 +127,7 @@ class Simulation:
     def _pick_a_control_rollout(self, current_state, old_action):
         """One-step lookahead: Q̃(u) = g(xₖ, u) + γ^T · max_a Q(f(xₖ,u), a).
         f_function returns 12-dim raw counts; DQN expects 24-dim normalized state.
-        Normalize the predicted counts and pad zeros for the wait-time half.
+        Predicted counts are normalized; wait-time half is padded with zeros.
         """
         if self._step == 0:
             return 0
@@ -142,8 +142,7 @@ class Simulation:
             if self._num_states == 12:
                 next_state_for_dqn = next_counts_norm
             else:
-                current_waits_norm = np.clip(self._last_waits / self._max_steps, 0.0, 1.0)
-                next_state_for_dqn = np.concatenate([next_counts_norm, current_waits_norm])
+                next_state_for_dqn = np.concatenate([next_counts_norm, np.zeros(12)])
             q_next = self._Model.predict_one(next_state_for_dqn)
             q_tilde = g_val + self._gamma ** past_time * np.amax(q_next)
             scores.append(q_tilde)
